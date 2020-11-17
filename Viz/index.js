@@ -81,19 +81,8 @@ function processData(accident_data) {
     let groupedByCounties = d3.rollup(accident_data, v => v.length, d => d.county_id);
     groupedByCounties.delete(-1);
 
-    console.log(groupedByCounties)
-
     let max = Math.max(...groupedByCounties.values());
-    let min = Math.min(...groupedByCounties.values())
-
-    groupedByCounties.forEach((value,key) => {
-        if (value === max) {
-            console.log(key, value)
-        }
-        if (value === min) {
-            console.log(key, value)
-        }
-    })
+    let min = Math.min(...groupedByCounties.values());
 
     // Gets choropleth color scale
     let colorScaleMap = d3.scaleLinear()
