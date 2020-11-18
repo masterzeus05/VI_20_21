@@ -1,7 +1,7 @@
-// let a = d3.select("body").append("span")
-//     .style("color", "white")
-//     .style("background-color", "black")
-//     .html("Hello, world!");
+let accident_data = null;
+let uk_data = null;
+
+let svg_choropleth_map;
 
 // Gets data from dataset
 function getData() {
@@ -35,49 +35,59 @@ function getData() {
         if (error != null) {
             console.log(error);
         }
-        processData(data);
+        accident_data = data;
+
+        d3.json("data/uk_map.json").then(function(topology) {
+            uk_data = topology;
+
+            processData();
+        });
+
     });
 }
 
-let width = 350,
-    height = 500;
+// Generate choropleth map
+function gen_choropleth_map() {
+    let width = 350,
+        height = 500;
 
-let projection = d3.geoMercator()
-    .center([1.5, 55.2])
-    .rotate([4.4, 0])
-    .scale(1300)
-    .translate([width / 2, height / 2]);
+    let projection = d3.geoMercator()
+        .center([1.5, 55.2])
+        .rotate([4.4, 0])
+        .scale(1300)
+        .translate([width / 2, height / 2]);
 
-let svg = d3.select("body").append("svg")
-    .attr("width", width)
-    .attr("height", height);
+    svg_choropleth_map = d3.select("#choropleth_map")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
 
-let path = d3.geoPath()
-    .projection(projection);
+    let path = d3.geoPath()
+        .projection(projection);
 
-let g = svg.append("g");
+    let g = svg_choropleth_map.append("g");
 
-// Tooltip
-let div = d3.select("body").append("div")
-    .attr("class", "tooltip")
-    .style("opacity", 0);
+    // Tooltip
+    let div = d3.select("body").append("div")
+        .attr("class", "tooltip")
+        .attr("id", "choropleth_tooltip")
+        .style("opacity", 0);
 
-let zoom = d3.zoom()
-    .scaleExtent([1, 50])
-    .on('zoom', function(event) {
-        // console.log(event.transform)
-        let s = event.transform.k, x = event.transform.x, y = event.transform.y;
-        event.transform.x = Math.min(width / 2 * (s - 1), Math.max(width / 2 * (1 - s) - 150 * s, x));
-        event.transform.y = Math.min(height / 2 * (s - 1) + 230 * s, Math.max(height / 2 * (1 - s) - 230 * s, y));
-        g.selectAll('path')
-            .attr('transform', event.transform);
-        g.selectAll("circle")
-            .attr('transform', event.transform);
-    });
+    let zoom = d3.zoom()
+        .scaleExtent([1, 50])
+        .on('zoom', function(event) {
+            // console.log(event.transform)
+            let s = event.transform.k, x = event.transform.x, y = event.transform.y;
+            event.transform.x = Math.min(width / 2 * (s - 1), Math.max(width / 2 * (1 - s) - 150 * s, x));
+            event.transform.y = Math.min(height / 2 * (s - 1) + 230 * s, Math.max(height / 2 * (1 - s) - 230 * s, y));
+            g.selectAll('path')
+                .attr('transform', event.transform);
+            g.selectAll("circle")
+                .attr('transform', event.transform);
+        });
 
-svg.call(zoom);
+    svg_choropleth_map.call(zoom);
 
-function processData(accident_data) {
     let groupedByCounties = d3.rollup(accident_data, v => v.length, d => d.county_id);
     groupedByCounties.delete(-1);
 
@@ -87,38 +97,40 @@ function processData(accident_data) {
     // Gets choropleth color scale
     let colorScaleMap = d3.scaleLinear()
         .domain([min, max])
-        .range(['blue', 'red']);
+        .range(['rgba(0, 255, 255, 1)', 'rgba(0, 0, 255, 1)']);
 
 
-    // load and display the map
-    d3.json("data/uk_map.json").then(function(topology) {
+    // Display the map
+    // Add counties
+    g.selectAll("path")
+        .data(topojson.feature(uk_data, uk_data.objects.subunits)
+            .features)
+        .enter().append("path")
+        .attr("d", path)
+        .attr("fill", function (d) {
+            if (!groupedByCounties.has(d.properties.cartodb_id) || groupedByCounties.get(d.properties.cartodb_id) === undefined) {
+                return "grey";
+            }
+            return colorScaleMap(groupedByCounties.get(d.properties.cartodb_id));
+        })
+        .on("mouseover", function(event,d) {
+            div.transition()
+                .duration(200)
+                .style("opacity", .9);
+            div.html(d.properties.name + " - Number: " + groupedByCounties.get(d.properties.cartodb_id))
+                .style("left", (event.pageX) + "px")
+                .style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", function(d) {
+            div.transition()
+                .duration(500)
+                .style("opacity", 0);
+        });
+}
 
-        // Add counties
-        g.selectAll("path")
-            .data(topojson.feature(topology, topology.objects.subunits)
-                .features)
-            .enter().append("path")
-            .attr("d", path)
-            .attr("fill", function (d) {
-                if (!groupedByCounties.has(d.properties.cartodb_id) || groupedByCounties.get(d.properties.cartodb_id) === undefined) {
-                    return "grey";
-                }
-                return colorScaleMap(groupedByCounties.get(d.properties.cartodb_id));
-            })
-            .on("mouseover", function(event,d) {
-                div.transition()
-                    .duration(200)
-                    .style("opacity", .9);
-                div.html(d.properties.name + " - Number: " + groupedByCounties.get(d.properties.cartodb_id))
-                    .style("left", (event.pageX) + "px")
-                    .style("top", (event.pageY - 28) + "px");
-            })
-            .on("mouseout", function(d) {
-                div.transition()
-                    .duration(500)
-                    .style("opacity", 0);
-            });
-    });
+// After getting data, generate idioms
+function processData() {
+    gen_choropleth_map();
 }
 
 // MAIN
