@@ -5,12 +5,12 @@ let svg_choropleth_map;
 
 // Gets data from dataset
 function getData() {
-    d3.dsv(";", "data/accidents_mini_with_county2_old.csv", function(d) {
+    d3.dsv(";", "data/accidents_mini_with_county.csv", function(d) {
         return {
             Accident_Index: d.Accident_Index,
             Accident_Severity: d.Accident_Severity,
             Age_Band_of_Driver: d.Age_Band_of_Driver,
-            county_id: +d.county_id,
+            county: d.county,
             Date: d.Date,
             Day_of_Week: d.Day_of_Week,
             Latitude: +d.Latitude,
@@ -37,7 +37,7 @@ function getData() {
         }
         accident_data = data;
 
-        d3.json("data/uk_map.json").then(function(topology) {
+        d3.json("data/uk_test.json").then(function(topology) {
             uk_data = topology;
 
             processData();
@@ -88,8 +88,8 @@ function gen_choropleth_map() {
 
     svg_choropleth_map.call(zoom);
 
-    let groupedByCounties = d3.rollup(accident_data, v => v.length, d => d.county_id);
-    groupedByCounties.delete(-1);
+    let groupedByCounties = d3.rollup(accident_data, v => v.length, d => d.county);
+    groupedByCounties.delete('NaN');
 
     let max = Math.max(...groupedByCounties.values());
     let min = Math.min(...groupedByCounties.values());
@@ -97,27 +97,26 @@ function gen_choropleth_map() {
     // Gets choropleth color scale
     let colorScaleMap = d3.scaleLinear()
         .domain([min, max])
-        .range(['rgba(0, 255, 255, 1)', 'rgba(0, 0, 255, 1)']);
+        .range(['rgba(255, 170, 170, 1)', 'rgba(255, 21, 21, 1)']);
 
 
     // Display the map
     // Add counties
     g.selectAll("path")
-        .data(topojson.feature(uk_data, uk_data.objects.subunits)
-            .features)
+        .data(uk_data.features)
         .enter().append("path")
         .attr("d", path)
         .attr("fill", function (d) {
-            if (!groupedByCounties.has(d.properties.cartodb_id) || groupedByCounties.get(d.properties.cartodb_id) === undefined) {
+            if (!groupedByCounties.has(d.properties.LAD13NM) || groupedByCounties.get(d.properties.LAD13NM) === undefined) {
                 return "grey";
             }
-            return colorScaleMap(groupedByCounties.get(d.properties.cartodb_id));
+            return colorScaleMap(groupedByCounties.get(d.properties.LAD13NM));
         })
         .on("mouseover", function(event,d) {
             div.transition()
                 .duration(200)
                 .style("opacity", .9);
-            div.html(d.properties.name + " - Number: " + groupedByCounties.get(d.properties.cartodb_id))
+            div.html(d.properties.LAD13NM + " - Number: " + groupedByCounties.get(d.properties.LAD13NM))
                 .style("left", (event.pageX) + "px")
                 .style("top", (event.pageY - 28) + "px");
         })
