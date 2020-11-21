@@ -4,10 +4,26 @@ let uk_data = null;
 let svg_choropleth_map;
 let svg_pyramid_bar_chart = null;
 
+
 let selectedCounties = new Set();
 let currentAccidentData = null;
 
 let dispatch = d3.dispatch("countyEvent");
+
+// Choropleth Map Chart Settings
+let def_i1 = {
+    margin: {
+        top: 20,
+        right: 20,
+        bottom: 32,
+        left: 20,
+        middle: 24
+    },
+    width: 350,
+    height: 400,
+    center: [1.5, 55.4],
+    scale: 1100
+}
 
 // Pyramid Bar Chart Settings
 let def_i2 = {
@@ -85,13 +101,15 @@ function processData() {
  */
 // Generate choropleth map
 function gen_choropleth_map() {
-    let width = 350,
-        height = 400;
+    let width = def_i1.width,
+        height = def_i1.height,
+        defaultCenter = def_i1.center,
+        defaultScale = def_i1.scale;
 
     let projection = d3.geoMercator()
-        .center([1.5, 55.2])
+        .center(defaultCenter)
         .rotate([4.4, 0])
-        .scale(1100)
+        .scale(defaultScale)
         .translate([width / 2, height / 2]);
 
     svg_choropleth_map = d3.select("#choropleth_map")
@@ -155,11 +173,24 @@ function gen_choropleth_map() {
             div.html(getCountyName(d) + " - Number: " + groupedByCounties.get(getCountyName(d)))
                 .style("left", (event.pageX) + "px")
                 .style("top", (event.pageY - 28) + "px");
+
+            // Check if not selected
+            if (!selectedCounties.has(getCountyName(d))) {
+                d3.select(event.target)
+                    .style("stroke", "black")
+                    .style("stroke-width", "0.2");
+            }
         })
         .on("mouseout", function(event, d) {
             div.transition()
                 .duration(500)
                 .style("opacity", 0);
+
+            // Check if not selected
+            if (!selectedCounties.has(getCountyName(d))) {
+                d3.select(event.target)
+                    .style("stroke", "transparent");
+            }
         });
 }
 
@@ -335,6 +366,7 @@ function gen_pyramid_bar_chart() {
 */
 
 // Click on county
+// FIXME: If clicked on i.e. isles of scilly, pyramid chart bugs out
 function prepareCountyEvent() {
     svg_choropleth_map.selectAll("path").on("click", (event, datum) => {
         dispatch.call("countyEvent", this, {event: event, datum: datum});
@@ -352,7 +384,8 @@ function prepareCountyEvent() {
 
             // Change stroke to unselected
             d3.select(event.target)
-                .style("stroke", "transparent");
+                .style("stroke", "black")
+                .style("stroke-width", "0.2");
         }
         else {
             // Select
@@ -372,7 +405,7 @@ function prepareCountyEvent() {
 
 // Prepare buttons
 function prepareButtons() {
-    d3.select("#reset").on("click", function() {
+    d3.select("#reset").on("click", function(event) {
         // Unselect counties
         svg_choropleth_map.selectAll("path")
             .filter(d => {
@@ -381,7 +414,12 @@ function prepareButtons() {
             .style("stroke", "transparent");
         selectedCounties.clear();
 
-        // Update all idioms to reseted data
+        // TODO: Recenter map
+        // console.log(event);
+
+
+
+        // Update all idioms to reset data
         updateIdioms();
     })
 }
@@ -508,12 +546,14 @@ function updateIdioms() {
 
         svg_pyramid_bar_chart.select("#xAxisLeft")
             .transition()
-            .duration(1000)
+            .delay(300)
+            .duration(2000)
             .call(xAxisLeft);
 
         svg_pyramid_bar_chart.select("#xAxisRight")
             .transition()
-            .duration(1000)
+            .delay(300)
+            .duration(2000)
             .call(xAxisRight);
     }
 

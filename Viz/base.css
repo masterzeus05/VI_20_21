@@ -1,3 +1,14 @@
+body {
+    background-color: #fffff1;
+
+    /* Don't allow selection of text */
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: -moz-none;
+    -o-user-select: none;
+    user-select: none;
+}
+
 /* Idioms Grouping */
 .idioms {
     display: flex;
@@ -38,4 +49,5 @@ div.tooltip {
     border: solid 1px black;
     color: white;
     background: gray;
+    cursor: pointer;
 }
