@@ -2,6 +2,12 @@
 .idioms {
     display: flex;
     flex-direction: column;
+    margin: 10px 0;
+}
+
+.idiom {
+    border: 1px black solid;
+    margin: 10px;
 }
 
 .line {
@@ -23,3 +29,13 @@ div.tooltip {
     pointer-events: none;
 }
 
+.buttons {
+    display: flex;
+}
+.btn {
+    font-family: arial, calibri, sans serif;
+    padding: 10px;
+    border: solid 1px black;
+    color: white;
+    background: gray;
+}

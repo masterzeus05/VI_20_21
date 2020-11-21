@@ -2,10 +2,28 @@ let accident_data = null;
 let uk_data = null;
 
 let svg_choropleth_map;
-let svg_pyramid_bar_chart;
+let svg_pyramid_bar_chart = null;
 
-let selectedCounties = [];
+let selectedCounties = new Set();
 let currentAccidentData = null;
+
+let dispatch = d3.dispatch("countyEvent");
+
+// Pyramid Bar Chart Settings
+let def_i2 = {
+    margin: {
+        top: 20,
+        right: 20,
+        bottom: 32,
+        left: 20,
+        middle: 24
+    },
+    width: 350,
+    height: 400
+}
+
+// MAIN
+getData();
 
 // Gets data from dataset
 function getData() {
@@ -40,6 +58,7 @@ function getData() {
             console.log(error);
         }
         accident_data = data;
+        currentAccidentData = accident_data;
 
         d3.json("data/uk_test.json").then(function(topology) {
             uk_data = topology;
@@ -50,9 +69,23 @@ function getData() {
     });
 }
 
+// After getting data, generate idioms and prepare events
+function processData() {
+    // Idioms
+    gen_choropleth_map();
+    gen_pyramid_bar_chart();
+
+    // Events
+    prepareCountyEvent();
+    prepareButtons();
+}
+
+/**
+ * Idioms generators
+ */
 // Generate choropleth map
 function gen_choropleth_map() {
-    let width = 300,
+    let width = 350,
         height = 400;
 
     let projection = d3.geoMercator()
@@ -80,7 +113,6 @@ function gen_choropleth_map() {
     let zoom = d3.zoom()
         .scaleExtent([1, 50])
         .on('zoom', function(event) {
-            // console.log(event.transform)
             let s = event.transform.k, x = event.transform.x, y = event.transform.y;
             event.transform.x = Math.min(width / 2 * (s - 1), Math.max(width / 2 * (1 - s) - 150 * s, x));
             event.transform.y = Math.min(height / 2 * (s - 1) + 230 * s, Math.max(height / 2 * (1 - s) - 230 * s, y));
@@ -111,16 +143,16 @@ function gen_choropleth_map() {
         .enter().append("path")
         .attr("d", path)
         .attr("fill", function (d) {
-            if (!groupedByCounties.has(d.properties.LAD13NM) || groupedByCounties.get(d.properties.LAD13NM) === undefined) {
+            if (!groupedByCounties.has(getCountyName(d)) || groupedByCounties.get(getCountyName(d)) === undefined) {
                 return "grey";
             }
-            return colorScaleMap(groupedByCounties.get(d.properties.LAD13NM));
+            return colorScaleMap(groupedByCounties.get(getCountyName(d)));
         })
         .on("mouseover", function(event,d) {
             div.transition()
                 .duration(200)
                 .style("opacity", .9);
-            div.html(d.properties.LAD13NM + " - Number: " + groupedByCounties.get(d.properties.LAD13NM))
+            div.html(getCountyName(d) + " - Number: " + groupedByCounties.get(getCountyName(d)))
                 .style("left", (event.pageX) + "px")
                 .style("top", (event.pageY - 28) + "px");
         })
@@ -128,52 +160,41 @@ function gen_choropleth_map() {
             div.transition()
                 .duration(500)
                 .style("opacity", 0);
-        })
-        .on("click", function(event, d) {
-            console.log(event, d);
         });
 }
 
 // Generate pyramid bar chart
 function gen_pyramid_bar_chart() {
+    // Check if already generated
+    if (svg_pyramid_bar_chart !== null) {
+        return;
+    }
+
     // Set margins and width and height
-    let margin = {
-        top: 8,
-        right: 20,
-        bottom: 32,
-        left: 20,
-        middle: 24
-    };
-    let width = 350,
-        height = 400,
-        effectiveWidth = width-margin.left-margin.right,
+    let margin = def_i2.margin;
+    let width = def_i2.width,
+        height = def_i2.height,
+        effectiveWidth = width-margin.left - margin.right,
+        effectiveHeight = height - margin.bottom,
         regionWidth = (effectiveWidth)/2 - margin.middle;
 
     // these are the x-coordinates of the y-axes
     let pointA = regionWidth,
         pointB = effectiveWidth - regionWidth;
 
-    // Set svg
-    svg_pyramid_bar_chart = d3.select("#pyramid_bar_chart")
-        .append("svg")
-        .attr("width", width)
-        .attr("height", height);
-    let g = svg_pyramid_bar_chart.append("g")
-        .attr("transform", translation(margin.left, margin.top));
-
     // Get custom dataset
-    let filteredAccidentData = accident_data.filter(d => {
+    let filteredAccidentData = currentAccidentData.filter(d => {
         return d.Age_Band_of_Driver !== "" && d.Sex_of_Driver !== "Not known";
     })
     let groupedByAgeGender = d3.rollup(filteredAccidentData,
-            v => v.length,
-            d => d.Age_Band_of_Driver, d => d.Sex_of_Driver
+        v => v.length,
+        d => d.Age_Band_of_Driver, d => d.Sex_of_Driver
     );
     groupedByAgeGender.delete("11 - 15");
-    // groupedByAgeGender.set("06 - 10", groupedByAgeGender.get("6 - 10"));
     groupedByAgeGender.delete("6 - 10");
 
-    console.log(groupedByAgeGender)
+    // Sort map
+    groupedByAgeGender = new Map(Array.from(groupedByAgeGender).sort());
 
     // Get max values
     let maxValue = 0;
@@ -181,6 +202,15 @@ function gen_pyramid_bar_chart() {
         let tmp = Math.max(...groupedByAgeGender.get(e).values());
         if (tmp > maxValue) maxValue = tmp;
     })
+
+    // Set svg
+    svg_pyramid_bar_chart = d3.select("#pyramid_bar_chart")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
+    let g = svg_pyramid_bar_chart.append("g")
+        .attr("transform", translation(margin.left, margin.top))
+        .attr("class", "svg_group");
 
     // X scales
     let xScale = d3.scaleLinear()
@@ -202,7 +232,7 @@ function gen_pyramid_bar_chart() {
 
     let yScale = d3.scaleBand()
         .domain(yScaleData)
-        .range([0, height - margin.bottom])
+        .range([0, effectiveHeight - margin.bottom])
         .paddingInner(0.2)
         .paddingOuter(0.2);
 
@@ -217,9 +247,23 @@ function gen_pyramid_bar_chart() {
         .tickSize(4, 0)
         .tickFormat('');
 
+    // Y axis title
+    g.append('text')
+        .attr('dy', '.18em' )
+        .attr('x', effectiveWidth/2 - margin.left*3/5)
+        .text('Age');
+
+    // X axis title
+    g.append('text')
+        .attr('dy', '.24em' )
+        .attr('x', effectiveWidth/2 - margin.left*2)
+        .attr('y', effectiveHeight)
+        .text('Nº of Accidents');
+
     // Bars groups for each side
     let leftBarGroup = g.append('g')
-        .attr('transform', translation(pointA, 0) + ', scale(-1,1)');
+        .attr('transform', translation(pointA, 0) + ', scale(-1,1)')
+        .attr('class', 'left-bar');
 
     leftBarGroup.append( 'text' )
         .attr( 'transform', translation(regionWidth - margin.left,10) + ', scale(-1,1)')
@@ -228,7 +272,8 @@ function gen_pyramid_bar_chart() {
         .html("Male")
 
     let rightBarGroup = g.append('g')
-        .attr('transform', 'translate(' + pointB + ',0)');
+        .attr('transform', 'translate(' + pointB + ',0)')
+        .attr('class', 'right-bar');
 
     rightBarGroup.append( 'text' )
         .attr( 'transform', translation(regionWidth - 3*margin.right,10))
@@ -236,11 +281,34 @@ function gen_pyramid_bar_chart() {
         .attr( 'text-anchor', 'start' )
         .html("Female")
 
-    // Draw bars
-    leftBarGroup.selectAll('.bar.left')
+    // Add axis
+    g.append('g')
+        .attr('id', 'yAxisLeft')
+        .attr('transform', translation(pointA, 0))
+        .call(yAxisLeft)
+        .selectAll('text')
+        .style('text-anchor', 'middle');
+
+    g.append('g')
+        .attr('id', 'yAxisRight')
+        .attr('transform', translation(pointB, 0))
+        .call(yAxisRight);
+
+    g.append('g')
+        .attr('id', 'xAxisLeft')
+        .attr('transform', translation(0, effectiveHeight-margin.bottom))
+        .call(xAxisLeft);
+
+    g.append('g')
+        .attr('id', 'xAxisRight')
+        .attr('transform', translation(pointB, effectiveHeight-margin.bottom))
+        .call(xAxisRight);
+
+    // Add bars
+    leftBarGroup.selectAll('rect')
         .data(groupedByAgeGender)
-        .enter().append('rect')
-        .attr('class', 'bar left')
+        .join('rect')
+        .attr("class", ".bar.left")
         .attr('x', 0)
         .attr('y', function(d) { return yScale(d[0]); })
         .attr('width', function(d) { return xScale(d[1].get("Male")); })
@@ -249,10 +317,10 @@ function gen_pyramid_bar_chart() {
         .append("title")
         .text(d => d[1].get("Male"));
 
-    rightBarGroup.selectAll('.bar.right')
+    rightBarGroup.selectAll('rect')
         .data(groupedByAgeGender)
-        .enter().append('rect')
-        .attr('class', 'bar right')
+        .join('rect')
+        .attr("class", ".bar.right")
         .attr('x', 0)
         .attr('y', function(d) { return yScale(d[0]); })
         .attr('width', function(d) { return xScale(d[1].get("Female")); })
@@ -260,53 +328,222 @@ function gen_pyramid_bar_chart() {
         .attr('fill', '#F88B9D')
         .append("title")
         .text(d => d[1].get("Female"));
-
-    // Draw Axes
-    g.append('g')
-        .attr('class', 'axis y left')
-        .attr('transform', translation(pointA, 0))
-        .call(yAxisLeft)
-        .selectAll('text')
-        .style('text-anchor', 'middle');
-
-    g.append('g')
-        .attr('class', 'axis y right')
-        .attr('transform', translation(pointB, 0))
-        .call(yAxisRight);
-
-    g.append('g')
-        .attr('class', 'axis x left')
-        .attr('transform', translation(0, height-margin.bottom))
-        .call(xAxisLeft);
-
-    g.append('g')
-        .attr('class', 'axis x right')
-        .attr('transform', translation(pointB, height-margin.bottom))
-        .call(xAxisRight);
-
-    // Y axis title
-    g.append('text')
-        .attr('dy', '.18em' )
-        .attr('x', effectiveWidth/2 - margin.left*3/5)
-        .text('Age');
-
-    // X axis title
-    // g.append('text')
-    //     .attr('dy', '.24em' )
-    //     .attr('x', effectiveWidth/2 - margin.left*3/5)
-    //     .text('Age');
 }
 
-// After getting data, generate idioms
-function processData() {
-    gen_choropleth_map();
-    gen_pyramid_bar_chart();
+/**
+* Events
+*/
+
+// Click on county
+function prepareCountyEvent() {
+    svg_choropleth_map.selectAll("path").on("click", (event, datum) => {
+        dispatch.call("countyEvent", this, {event: event, datum: datum});
+    });
+
+    dispatch.on("countyEvent", function(args) {
+        // Get arguments
+        let event = args.event, datum = args.datum;
+        let name = getCountyName(datum);
+
+        // Check if already selected
+        if (selectedCounties.has(name)) {
+            // Unselect
+            selectedCounties.delete(name);
+
+            // Change stroke to unselected
+            d3.select(event.target)
+                .style("stroke", "transparent");
+        }
+        else {
+            // Select
+            selectedCounties.add(name);
+
+            // Change stroke to selected
+            d3.select(event.target)
+                .style("stroke", "black")
+                .style("stroke-width", "0.5");
+        }
+
+        // Update all idioms
+        updateIdioms();
+
+    })
 }
 
-// MAIN
-getData();
+// Prepare buttons
+function prepareButtons() {
+    d3.select("#reset").on("click", function() {
+        // Unselect counties
+        svg_choropleth_map.selectAll("path")
+            .filter(d => {
+                return selectedCounties.has(getCountyName(d));
+            })
+            .style("stroke", "transparent");
+        selectedCounties.clear();
+
+        // Update all idioms to reseted data
+        updateIdioms();
+    })
+}
+
+// Update all idioms
+function updateIdioms() {
+
+    function updatePyramidBarChart() {
+        // Set margins and width and height
+        let margin = def_i2.margin;
+        let width = def_i2.width,
+            height = def_i2.height,
+            effectiveWidth = width-margin.left - margin.right,
+            effectiveHeight = height - margin.bottom,
+            regionWidth = (effectiveWidth)/2 - margin.middle;
+
+        // these are the x-coordinates of the y-axes
+        let pointA = regionWidth,
+            pointB = effectiveWidth - regionWidth;
+
+        // Get custom dataset
+        let filteredAccidentData = currentAccidentData.filter(d => {
+            return d.Age_Band_of_Driver !== "" && d.Sex_of_Driver !== "Not known";
+        })
+        let groupedByAgeGender = d3.rollup(filteredAccidentData,
+            v => v.length,
+            d => d.Age_Band_of_Driver, d => d.Sex_of_Driver
+        );
+        groupedByAgeGender.delete("11 - 15");
+        groupedByAgeGender.delete("6 - 10");
+
+        // Sort map
+        groupedByAgeGender = new Map(Array.from(groupedByAgeGender).sort());
+
+        // Get max values
+        let maxValue = 0;
+        groupedByAgeGender.forEach( (i, e) => {
+            let tmp = Math.max(...groupedByAgeGender.get(e).values());
+            if (tmp > maxValue) maxValue = tmp;
+        })
+
+        // X scales
+        let xScale = d3.scaleLinear()
+            .domain([0, maxValue])
+            .range([0, regionWidth])
+            .nice();
+
+        // X axis
+        let xAxisLeft = d3.axisBottom()
+            .scale(xScale.copy().range([pointA, 0]))
+            .ticks(5);
+
+        let xAxisRight = d3.axisBottom()
+            .scale(xScale)
+            .ticks(5);
+
+        // Y scale
+        let yScaleData = Array.from(groupedByAgeGender.keys()).sort().reverse();
+
+        let yScale = d3.scaleBand()
+            .domain(yScaleData)
+            .range([0, effectiveHeight - margin.bottom])
+            .paddingInner(0.2)
+            .paddingOuter(0.2);
+
+        // Y axis
+        let yAxisLeft = d3.axisRight()
+            .scale(yScale)
+            .tickSize(4, 0)
+            .tickPadding(margin.middle - 4);
+
+        let yAxisRight = d3.axisLeft()
+            .scale(yScale)
+            .tickSize(4, 0)
+            .tickFormat('');
+
+        svg_pyramid_bar_chart.select('.left-bar')
+            .selectAll('rect')
+            .data(groupedByAgeGender)
+            .join('rect')
+            .attr("class", ".bar.left")
+            .attr('x', 0)
+            .attr('height', yScale.bandwidth())
+            .attr('fill', '#8ECEFD')
+            .transition()
+            .delay(function(d,i){
+                let index = yScaleData.indexOf(d[0]);
+                return 100 + (index * 200);
+            })
+            .duration(1000)
+            .attr('width', function(d) { return xScale(d[1].get("Male")); })
+            .select("title")
+            .text(d => d[1].get("Male"));
+
+        svg_pyramid_bar_chart.select('.right-bar')
+            .selectAll('rect')
+            .data(groupedByAgeGender)
+            .join('rect')
+            .attr("class", ".bar.right")
+            .attr('x', 0)
+            .attr('y', function(d) { return yScale(d[0]); })
+            // .attr('width', 0)
+            .attr('height', yScale.bandwidth())
+            .attr('fill', '#F88B9D')
+            .transition()
+            .delay(function(d,i) {
+                let index = yScaleData.indexOf(d[0]);
+                return 100 + (index * 200);
+            })
+            .duration(1000)
+            .attr('width', function(d) { return xScale(d[1].get("Female")); })
+            .select("title")
+            .text(d => d[1].get("Female"));
+
+
+        // Draw Axes
+        svg_pyramid_bar_chart.select("#yAxisLeft")
+            .call(yAxisLeft)
+            .selectAll('text')
+            .style('text-anchor', 'middle');
+
+        svg_pyramid_bar_chart.select("#yAxisRight")
+            .call(yAxisRight);
+
+        svg_pyramid_bar_chart.select("#xAxisLeft")
+            .transition()
+            .duration(1000)
+            .call(xAxisLeft);
+
+        svg_pyramid_bar_chart.select("#xAxisRight")
+            .transition()
+            .duration(1000)
+            .call(xAxisRight);
+    }
+
+    // Filter current data to use this counties
+    currentAccidentData = getFilteredData();
+
+    updatePyramidBarChart();
+}
+
+// Update data according to filters
+function getFilteredData() {
+
+    // Filter on counties
+    currentAccidentData = accident_data.filter(d => {
+        return selectedCounties.has(d.county);
+    })
+
+    // Check if filters reset
+    if (currentAccidentData.length === 0) {
+        currentAccidentData = accident_data;
+    }
+
+    return currentAccidentData;
+}
 
 // Helper
 function translation(x,y) {
     return 'translate(' + x + ',' + y + ')';
+}
+
+function getCountyName(feature) {
+    return feature.properties.LAD13NM;
 }
