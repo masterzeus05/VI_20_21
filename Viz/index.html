@@ -7,31 +7,13 @@
         <script type="text/javascript" src="d3/geo/d3-geo.js"></script>
         <script type="text/javascript" src="d3/color/d3-scale-chromatic.js"></script>
         <script type="text/javascript" src="d3/topojson.v3.min.js"></script>
+        <link rel="stylesheet" href="base.css">
     </head>
-    <style> /* set the CSS */
-
-    .line {
-        fill: none;
-        stroke: steelblue;
-        stroke-width: 2px;
-    }
-
-    div.tooltip {
-        position: absolute;
-        text-align: center;
-        width: auto;
-        height: auto;
-        padding: 2px;
-        font: 12px sans-serif;
-        background: lightsteelblue;
-        border: 0;
-        border-radius: 8px;
-        pointer-events: none;
-    }
-
-    </style>
     <body>
-        <div class="idiom" id="choropleth_map" style="max-width: 600px; float: left;"></div>
+        <div class="idioms">
+            <div class="idiom" id="choropleth_map" style="max-width: 350px; float: left;"></div>
+            <div class="idiom" id="pyramid_bar_chart" style="max-width: 350px; float: left;"></div>
+        </div>
     </body>
     <script type="text/javascript" src="index.js?0004"></script>
 </html>
