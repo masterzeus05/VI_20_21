@@ -24,6 +24,7 @@ let def_i1 = {
     center: [1.5, 55.4],
     scale: 1100
 }
+let recenterFunc;
 
 // Pyramid Bar Chart Settings
 let def_i2 = {
@@ -128,17 +129,34 @@ function gen_choropleth_map() {
         .attr("id", "choropleth_tooltip")
         .style("opacity", 0);
 
+    // Prepare zoom functions
+    let zoomed = function(event) {
+        let s = event.transform.k, x = event.transform.x, y = event.transform.y;
+        event.transform.x = Math.min(width / 2 * (s - 1), Math.max(width / 2 * (1 - s) - 150 * s, x));
+        event.transform.y = Math.min(height / 2 * (s - 1) + 230 * s, Math.max(height / 2 * (1 - s) - 230 * s, y));
+        g.selectAll('path')
+            .attr('transform', event.transform);
+        g.selectAll("circle")
+            .attr('transform', event.transform);
+    };
+
     let zoom = d3.zoom()
         .scaleExtent([1, 50])
-        .on('zoom', function(event) {
-            let s = event.transform.k, x = event.transform.x, y = event.transform.y;
-            event.transform.x = Math.min(width / 2 * (s - 1), Math.max(width / 2 * (1 - s) - 150 * s, x));
-            event.transform.y = Math.min(height / 2 * (s - 1) + 230 * s, Math.max(height / 2 * (1 - s) - 230 * s, y));
-            g.selectAll('path')
-                .attr('transform', event.transform);
-            g.selectAll("circle")
-                .attr('transform', event.transform);
-        });
+        .on('zoom', zoomed);
+
+    // Have function to recenter map
+    recenterFunc = function() {
+        let minScale = zoom.scaleExtent()[0];
+
+        // Build a new zoom transform (using d3.zoomIdentity as a base)
+        let transform = d3.zoomIdentity
+            .scale( minScale);
+
+        // Apply the new zoom transform:
+        svg_choropleth_map.transition()
+            .duration(750)
+            .call(zoom.transform, transform);
+    }
 
     svg_choropleth_map.call(zoom);
 
@@ -414,10 +432,8 @@ function prepareButtons() {
             .style("stroke", "transparent");
         selectedCounties.clear();
 
-        // TODO: Recenter map
-        // console.log(event);
-
-
+        // Recenter map
+        recenterFunc();
 
         // Update all idioms to reset data
         updateIdioms();
