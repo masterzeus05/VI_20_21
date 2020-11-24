@@ -6,6 +6,7 @@ let svg_pyramid_bar_chart = null;
 
 
 let selectedCounties = new Set();
+let selectedMinYear = 2005, selectedMaxYear = 2019;
 let currentAccidentData = null;
 
 let dispatch = d3.dispatch("countyEvent");
@@ -24,7 +25,7 @@ let def_i1 = {
     center: [1.5, 55.4],
     scale: 1100
 }
-let recenterFunc;
+let recenterMapFunc;
 
 // Pyramid Bar Chart Settings
 let def_i2 = {
@@ -92,6 +93,9 @@ function processData() {
     gen_choropleth_map();
     gen_pyramid_bar_chart();
 
+    // Year slider
+    gen_year_slider();
+
     // Events
     prepareCountyEvent();
     prepareButtons();
@@ -145,7 +149,7 @@ function gen_choropleth_map() {
         .on('zoom', zoomed);
 
     // Have function to recenter map
-    recenterFunc = function() {
+    recenterMapFunc = function() {
         let minScale = zoom.scaleExtent()[0];
 
         // Build a new zoom transform (using d3.zoomIdentity as a base)
@@ -366,6 +370,11 @@ function gen_pyramid_bar_chart() {
         .append("title")
         .text(d => d[1].get("Male"));
 
+    leftBarGroup.selectAll('rect').on("click", function(e, d) {
+        console.log(e);
+        console.log(d);
+    });
+
     rightBarGroup.selectAll('rect')
         .data(groupedByAgeGender)
         .join('rect')
@@ -377,6 +386,31 @@ function gen_pyramid_bar_chart() {
         .attr('fill', '#F88B9D')
         .append("title")
         .text(d => d[1].get("Female"));
+}
+
+// Generate year slider
+function gen_year_slider() {
+    let minYear = d3.min(accident_data, d => d.Year);
+    // FIXME: Use this when dataset is ready
+    // let maxYear = d3.max(accident_data, d => d.Year);
+    let maxYear = 2019;
+
+    let width = 1500;
+    let height = 65;
+
+    let margin = {
+        top: 15,
+        bottom: 15,
+        left: 40,
+        right: 40
+    }
+
+    slider_snap(minYear, maxYear, "#year_slider", width, height, margin, function(range) {
+        selectedMinYear = range[0];
+        selectedMaxYear = range[1];
+
+        updateIdioms();
+    });
 }
 
 /**
@@ -433,7 +467,7 @@ function prepareButtons() {
         selectedCounties.clear();
 
         // Recenter map
-        recenterFunc();
+        recenterMapFunc();
 
         // Update all idioms to reset data
         updateIdioms();

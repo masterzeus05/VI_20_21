@@ -7,13 +7,62 @@ body {
     -moz-user-select: -moz-none;
     -o-user-select: none;
     user-select: none;
+
+    display: grid;
+}
+
+.topbar {
+    display: flex;
+}
+
+.buttons {
+    display: flex;
+    align-items: center;
+    float: left;
+}
+
+/* #Reset */
+.btn {
+    font-family: arial, calibri, sans serif;
+    padding: 10px;
+    border: solid 1px black;
+    color: white;
+    background: gray;
+    cursor: pointer;
+}
+
+/* Slider */
+#year_slider {
+    float: right;
+}
+
+.topbar .overlay {
+    stroke: black;
+}
+
+.topbar .selection {
+    stroke: none;
+    fill: steelblue;
+    fill-opacity: 0.6;
+}
+#labelleft, #labelright {
+    dominant-baseline: hanging;
+    font-size: 12px;
+}
+
+#labelleft {
+    text-anchor: end;
+}
+
+#labelright {
+    text-anchor: start;
 }
 
 /* Idioms Grouping */
 .idioms {
     display: flex;
     flex-direction: column;
-    margin: 10px 0;
+    margin: 0;
 }
 
 .idiom {
@@ -38,16 +87,4 @@ div.tooltip {
     border: 0;
     border-radius: 8px;
     pointer-events: none;
-}
-
-.buttons {
-    display: flex;
-}
-.btn {
-    font-family: arial, calibri, sans serif;
-    padding: 10px;
-    border: solid 1px black;
-    color: white;
-    background: gray;
-    cursor: pointer;
 }
