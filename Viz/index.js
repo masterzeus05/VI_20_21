@@ -39,6 +39,19 @@ let def_i2 = {
     height: 400
 }
 
+// Lines Chart Settings
+let def_i4 = {
+    margin: {
+        top: 20,
+        right: 20,
+        bottom: 32,
+        left: 44,
+        middle: 24
+    },
+    width: 350,
+    height: 400
+}
+
 // MAIN
 getData();
 
@@ -91,6 +104,7 @@ function processData() {
     // Idioms
     gen_choropleth_map();
     gen_pyramid_bar_chart();
+    gen_lines_chart();
 
     // Events
     prepareCountyEvent();
@@ -377,6 +391,147 @@ function gen_pyramid_bar_chart() {
         .attr('fill', '#F88B9D')
         .append("title")
         .text(d => d[1].get("Female"));
+}
+
+// Generate lines chart
+function gen_lines_chart() {
+    // Set margins and width and height
+    let margin = def_i4.margin;
+    let width = def_i4.width,
+        height = def_i4.height,
+        effectiveWidth = width-margin.left - margin.right,
+        effectiveHeight = height - margin.bottom - margin.top;
+
+    // Get custom dataset
+    let filteredAccidentData = currentAccidentData.filter(d => {
+        return d.Vehicle_Year !== "" && d.make !== "Not known" && d.Number_of_Casualties!=""
+                && d.Vehicle_Year!==-1;
+    })
+
+    let groupedByMakeYear = d3.group(filteredAccidentData, d => d.make, d => d.Vehicle_Year);
+    let min_Vehicle_Year = d3.min(filteredAccidentData, d => d.Vehicle_Year);
+    let max_Vehicle_Year = d3.max(filteredAccidentData, d => d.Vehicle_Year);
+
+    let vehicleYearAccidents = d3.rollup(filteredAccidentData, v=> v.length, d=>d.Vehicle_Year);
+
+    let yearCasualtiesByMake = new Map()
+    for (var key of groupedByMakeYear.keys()){
+        let dict = {};
+        let dicts = [];
+        for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
+            if(groupedByMakeYear.get(key).get(i) == null){
+                dict.Year = i;
+                dict.n = 0;
+            }
+            else{
+                dict.Year = i;
+                dict.n = d3.sum(groupedByMakeYear.get(key).get(i), d=>d.Number_of_Casualties)/
+                            vehicleYearAccidents.get(i);
+            }
+            dicts.push(dict);
+            dict = {};
+        }
+        yearCasualtiesByMake.set(key, dicts);
+    }
+
+    //Get worst five makes
+    // filteredAccidentData = filteredAccidentData.filter(d => {
+    //     return d.Year >= min_Vehicle_Year && d.Year <= max_Vehicle_Year;
+    // })
+
+    worst_makes = (Array.from(
+                        d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.Number_of_Casualties), d=>d.make))
+                          .sort(function(a, b){return a[1]-b[1]})
+                          .reverse()
+                          .slice(0,5)
+                  ).map(x => x[0]);
+    //Get max Y
+    var maxY = 0;
+    for (var key of yearCasualtiesByMake.keys()){
+        if(d3.max(yearCasualtiesByMake.get(key), d => d.n) == 2 ||
+            d3.max(yearCasualtiesByMake.get(key), d => d.n) == 1){
+            console.log(yearCasualtiesByMake.get(key))
+        }
+        maxY = ( d3.max(yearCasualtiesByMake.get(key), d => d.n) > maxY ? d3.max(yearCasualtiesByMake.get(key), d => d.n) : maxY);
+    }
+
+    // set the ranges
+
+    var yearsDomain=[];
+    for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
+        yearsDomain.push(i);
+    }
+
+    var x = d3.scalePoint()
+              .domain(yearsDomain)
+              .range([0, effectiveWidth]);
+
+    var y = d3.scaleLinear()
+              .domain([0, maxY])
+              .range([effectiveHeight, 0]);
+
+    //var line= d3.line().x(function(d) { return x(d.Year); }).y(function(d) { return y(d.n); });
+    
+
+    var svg = d3.select("#lines_chart")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .append("g")
+                .attr("transform", translation(margin.left,margin.top));
+
+    // for (i = 0 ; i < worst_makes.length; i++){
+    //     svg.append("path")
+    //        .data([yearCasualtiesByMake.get(worst_makes[i])])
+    //        .attr("class", "line")
+    //        .attr("d", line);
+    //        console.log("1 ",[yearCasualtiesByMake.get(worst_makes[i])])
+    // }
+
+    var line = d3.line()
+                 .x(function(d) { return x(d.year); })
+                 .y(function(d) { return y(d.casualties); });
+
+    var color = d3.scaleOrdinal(d3.schemeCategory10)
+                  .domain(worst_makes);
+
+    var makes = color.domain().map(function(name) {
+        return {
+          name: name,
+          values: yearCasualtiesByMake.get(name).map(function(d) {
+            return {
+              year: d.Year,
+              casualties: d.n
+            };
+          })
+        };
+    });
+    
+    var make = svg.selectAll(".make")
+    .data(makes)
+    .enter().append("g")
+    .attr("class", "make");
+
+    make.append("path")
+      .attr("class", "line")
+      .attr("d", function(d) {
+        return line(d.values);
+      })
+      .style("stroke", function(d) {
+        return color(d.name);
+      });
+
+    var xscaleDataFiltered = yearsDomain.filter(function (d, i) {
+        if (i % 6 == 0) return d;
+      });
+
+    svg.append("g")
+      .attr("transform", translation(0,effectiveHeight))
+      .call(d3.axisBottom(x).tickValues(xscaleDataFiltered)
+      .tickSizeOuter(0));
+    
+    svg.append("g")
+       .call(d3.axisLeft(y));
 }
 
 /**
