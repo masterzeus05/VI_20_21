@@ -1,3 +1,8 @@
 *.geojson
 *.json
 *.csv
+.idea/codeStyles/codeStyleConfig.xml
+.idea/modules.xml
+.idea/vcs.xml
+.idea/VI_20_21.iml
+.idea/workspace.xml
