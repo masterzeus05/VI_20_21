@@ -9,10 +9,12 @@ body {
     user-select: none;
 
     display: grid;
+    margin: 0;
 }
 
 .topbar {
     display: flex;
+    margin: 0 10px;
 }
 
 .buttons {
@@ -60,8 +62,9 @@ body {
 
 /* Idioms Grouping */
 .idioms {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 2fr 3fr 2fr 1fr;
+    grid-template-rows: 1fr;
     margin: 0;
 }
 
