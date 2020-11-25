@@ -6,9 +6,11 @@ let svg_pyramid_bar_chart = null;
 
 
 let selectedCounties = new Set();
+let selectedPyramidBars = new Set();
 let currentAccidentData = null;
 
 let dispatch = d3.dispatch("countyEvent");
+let dispatch2 = d3.dispatch("pyramidEvent");
 
 // Choropleth Map Chart Settings
 let def_i1 = {
@@ -108,6 +110,7 @@ function processData() {
 
     // Events
     prepareCountyEvent();
+    preparePyramidEvent();
     prepareButtons();
 }
 
@@ -471,7 +474,6 @@ function gen_lines_chart() {
               .range([effectiveHeight, 0]);
 
     //var line= d3.line().x(function(d) { return x(d.Year); }).y(function(d) { return y(d.n); });
-    
 
     var svg = d3.select("#lines_chart")
                 .append("svg")
@@ -506,7 +508,7 @@ function gen_lines_chart() {
           })
         };
     });
-    
+
     var make = svg.selectAll(".make")
     .data(makes)
     .enter().append("g")
@@ -529,7 +531,7 @@ function gen_lines_chart() {
       .attr("transform", translation(0,effectiveHeight))
       .call(d3.axisBottom(x).tickValues(xscaleDataFiltered)
       .tickSizeOuter(0));
-    
+
     svg.append("g")
        .call(d3.axisLeft(y));
 }
@@ -585,7 +587,16 @@ function prepareButtons() {
                 return selectedCounties.has(getCountyName(d));
             })
             .style("stroke", "transparent");
+        
+        svg_pyramid_bar_chart.select('.left-bar')
+            .selectAll('rect')
+            .style("stroke", "transparent");
+        svg_pyramid_bar_chart.select('.right-bar')
+        .selectAll('rect')
+        .style("stroke", "transparent");
+        
         selectedCounties.clear();
+        selectedPyramidBars.clear();
 
         // Recenter map
         recenterFunc();
@@ -728,10 +739,151 @@ function updateIdioms() {
             .call(xAxisRight);
     }
 
+    function update_choropleth_map() {
+        let width = def_i1.width,
+            height = def_i1.height,
+            defaultCenter = def_i1.center,
+            defaultScale = def_i1.scale;
+        
+        let projection = d3.geoMercator()
+            .center(defaultCenter)
+            .rotate([4.4, 0])
+            .scale(defaultScale)
+            .translate([width / 2, height / 2]);
+        
+        let path = d3.geoPath()
+            .projection(projection);
+    
+        let g = svg_choropleth_map.select("g");
+
+        if (selectedPyramidBars.size !== 0){
+            filters = filtersPyramidBar();
+        }
+        
+        selectedAccidentData = accident_data.filter(d => {
+            if (selectedPyramidBars.size !== 0){
+                return filters.sex_filter.has(d.Sex_of_Driver) && filters.age_filter.has(d.Age_Band_of_Driver);
+            }
+            else{
+                return d;
+            }
+            
+        })
+        console.log(selectedAccidentData)
+
+        let groupedByCounties = d3.rollup(selectedAccidentData, v => v.length, d => d.county);
+        groupedByCounties.delete('NaN');
+    
+        let max = Math.max(...groupedByCounties.values());
+        let min = Math.min(...groupedByCounties.values());
+    
+        // Gets choropleth color scale
+        let colorScaleMap = d3.scaleLinear()
+            .domain([min, max])
+            .range(['rgba(255, 170, 170, 1)', 'rgba(255, 21, 21, 1)']);
+    
+        let div = d3.select("body").append("div")
+                    .attr("class", "tooltip")
+                    .attr("id", "choropleth_tooltip")
+                    .style("opacity", 0);;
+        // Display the map
+        // Add counties
+        g.selectAll("path")
+            .data(uk_data.features)
+            .join("path")
+            .on("mouseover", function(event,d) {
+                div.transition()
+                    .duration(200)
+                    .style("opacity", .9);
+                div.html(getCountyName(d) + " - Number: " + groupedByCounties.get(getCountyName(d)))
+                    .style("left", (event.pageX) + "px")
+                    .style("top", (event.pageY - 28) + "px");
+    
+                // Check if not selected
+                if (!selectedCounties.has(getCountyName(d))) {
+                    d3.select(event.target)
+                        .style("stroke", "black")
+                        .style("stroke-width", "0.2");
+                }
+            })
+            .on("mouseout", function(event, d) {
+                div.transition()
+                    .duration(500)
+                    .style("opacity", 0);
+    
+                // Check if not selected
+                if (!selectedCounties.has(getCountyName(d))) {
+                    d3.select(event.target)
+                        .style("stroke", "transparent");
+                }
+            })
+            .transition()
+            .delay(300)
+            .duration(1000)
+            .attr("d", path)
+            .attr("fill", function (d) {
+                if (!groupedByCounties.has(getCountyName(d)) || groupedByCounties.get(getCountyName(d)) === undefined) {
+                    return "grey";
+                }
+                return colorScaleMap(groupedByCounties.get(getCountyName(d)));
+            });
+            
+    }
+
     // Filter current data to use this counties
     currentAccidentData = getFilteredData();
-
+    
     updatePyramidBarChart();
+    update_choropleth_map();
+}
+
+function preparePyramidEvent() {
+    svg_pyramid_bar_chart.selectAll("rect").on("click", (event, datum) => {
+        dispatch2.call("pyramidEvent", this, {event: event, datum: datum});
+    });
+
+    dispatch2.on("pyramidEvent", function(args) {
+        let event = args.event;
+        let datum = args.datum;
+
+        let age_band = datum[0];
+        let sex;
+        if (event.target.className["baseVal"] == ".bar.left"){
+            sex = "Male";
+        }
+        else if(event.target.className["baseVal"] == ".bar.right"){
+            sex = "Female";
+        }
+        else{
+            return;
+        }
+
+        selectedBar = age_band + "|" +sex;
+        console.log(selectedBar)
+
+        // Check if already selected
+        if (selectedPyramidBars.has(selectedBar)) {
+            // Unselect
+            selectedPyramidBars.delete(selectedBar);
+
+            // Change stroke to unselected
+            d3.select(event.target)
+                .style("stroke", "none");
+        }
+        else {
+            // Select
+            selectedPyramidBars.add(selectedBar);
+
+            // Change stroke to selected
+            d3.select(event.target)
+                .style("stroke", "black")
+                .style("stroke-width", "0.5");
+        }
+
+        // Update all idioms
+        updateIdioms();
+
+    })
 }
 
 // Update data according to filters
@@ -757,4 +909,19 @@ function translation(x,y) {
 
 function getCountyName(feature) {
     return feature.properties.LAD13NM;
+}
+
+function filtersPyramidBar(){
+    array = Array.from(selectedPyramidBars);
+
+    let sexFilters = new Set();
+    let ageFilters = new Set();
+
+    for(i=0 ; i < array.length ; i++){
+        var age_sex = array[i].split("|");
+        sexFilters.add(age_sex[1]);
+        ageFilters.add(age_sex[0]);
+    }
+
+    return {sex_filter: sexFilters, age_filter: ageFilters};
 }
