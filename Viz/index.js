@@ -10,8 +10,7 @@ let selectedPyramidBars = new Set();
 let selectedMinYear = 2005, selectedMaxYear = 2019;
 let currentAccidentData = null;
 
-let dispatch = d3.dispatch("countyEvent");
-let dispatch2 = d3.dispatch("pyramidEvent");
+let dispatch = d3.dispatch("countyEvent", "pyramidEvent");
 
 // Choropleth Map Chart Settings
 let def_i1 = {
@@ -462,10 +461,10 @@ function prepareCountyEvent() {
 function preparePyramidEvent() {
 
     svg_pyramid_bar_chart.selectAll("rect").on("click", (event, datum) => {
-        dispatch2.call("pyramidEvent", this, {event: event, datum: datum});
+        dispatch.call("pyramidEvent", this, {event: event, datum: datum});
     });
 
-    dispatch2.on("pyramidEvent", function(args) {
+    dispatch.on("pyramidEvent", function(args) {
         let event = args.event;
         let datum = args.datum;
 
