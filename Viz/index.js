@@ -7,6 +7,7 @@ let svg_pyramid_bar_chart = null;
 
 let selectedCounties = new Set();
 let selectedPyramidBars = new Set();
+let currentPyramidFilterData = [];
 let selectedMinYear = 2005, selectedMaxYear = 2019;
 let currentAccidentData = null;
 
@@ -480,8 +481,7 @@ function preparePyramidEvent() {
             return;
         }
 
-        selectedBar = age_band + "|" +sex;
-        console.log(selectedBar)
+        selectedBar = age_band + "|" + sex;
 
         // Check if already selected
         if (selectedPyramidBars.has(selectedBar)) {
@@ -686,21 +686,7 @@ function updateIdioms() {
 
         let g = svg_choropleth_map.select("g");
 
-        if (selectedPyramidBars.size !== 0){
-            filters = filtersPyramidBar();
-        }
-
-        selectedAccidentData = accident_data.filter(d => {
-            if (selectedPyramidBars.size !== 0){
-                return filters.sex_filter.has(d.Sex_of_Driver) && filters.age_filter.has(d.Age_Band_of_Driver);
-            }
-            else{
-                return d;
-            }
-
-        })
-
-        let groupedByCounties = d3.rollup(selectedAccidentData, v => v.length, d => d.county);
+        let groupedByCounties = d3.rollup(currentPyramidFilterData, v => v.length, d => d.county);
         groupedByCounties.delete('NaN');
 
         let max = Math.max(...groupedByCounties.values());
@@ -762,6 +748,9 @@ function updateIdioms() {
     // Filter current data to use this counties
     currentAccidentData = getFilteredData();
 
+    //Filter data to use sex and age band selected
+    currentPyramidFilterData = getPyramidFilteredData();
+
     updatePyramidBarChart();
     update_choropleth_map();
 }
@@ -780,6 +769,25 @@ function getFilteredData() {
     }
 
     return currentAccidentData;
+}
+
+function getPyramidFilteredData() {
+
+    if (selectedPyramidBars.size !== 0){
+        filters = filtersPyramidBar();
+    }
+
+    selectedAccidentData = accident_data.filter(d => {
+        if (selectedPyramidBars.size !== 0){
+            return filters.sex_filter.has(d.Sex_of_Driver) && filters.age_filter.has(d.Age_Band_of_Driver);
+        }
+        else{
+            return d;
+        }
+
+    })
+
+    return selectedAccidentData;
 }
 
 // Helper
