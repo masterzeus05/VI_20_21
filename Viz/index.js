@@ -386,8 +386,6 @@ function gen_pyramid_bar_chart() {
         .text(d => d[1].get(1));
 
     leftBarGroup.selectAll('rect').on("click", function(e, d) {
-        console.log(e);
-        console.log(d);
     });
 
     rightBarGroup.selectAll('rect')
@@ -418,7 +416,7 @@ function gen_year_slider() {
         right: 40
     }
 
-    slider_snap(minYear, maxYear, "#year_slider", width, height, margin, function(range) {
+    let yearSlider = slider_snap(minYear, maxYear, "#year_slider", width, height, margin, function(range) {
         let minYear = range[0];
         let maxYear = range[1];
 
@@ -426,6 +424,8 @@ function gen_year_slider() {
 
         selectedMinYear = minYear;
         selectedMaxYear = maxYear;
+
+        isDirty = true;
 
         updateIdioms();
     });
@@ -490,6 +490,8 @@ function prepareButtons() {
             })
             .style("stroke", "transparent");
         selectedCounties.clear();
+
+        currentAccidentData = [];
 
         // Update all idioms to reset data
         updateIdioms();
@@ -647,15 +649,22 @@ function updateIdioms() {
 // Update data according to filters
 function getFilteredData() {
 
-    // Filter on counties
-    currentAccidentData = accident_data.filter(d => {
-        return selectedCounties.has(d.county);
-    })
-
     // Check if filters reset
     if (currentAccidentData.length === 0) {
         currentAccidentData = accident_data;
+        isDirty = false;
+        return currentAccidentData;
     }
+
+    currentAccidentData = accident_data.filter(d => {
+        // Filter on counties
+        let f1 = selectedCounties.size === 0 || selectedCounties.has(d.county);
+
+        // Filter on years
+        let f2 = (d.Year >= selectedMinYear && d.Year <= selectedMaxYear);
+
+        return f1 && f2;
+    });
 
     return currentAccidentData;
 }
