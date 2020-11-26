@@ -3,12 +3,15 @@ import pandas as pd
 import numpy as np
 from shapely.geometry import shape, Point
 from tqdm import tqdm
+import sys
+import math
 
 js = None
 with open('uk_test.json', 'r') as ukFile:
     js = json.load(ukFile)
 
 counties_problems = set()
+
 
 def getCountyId(longitude, latitude, pbar):
     global counties_problems
@@ -30,18 +33,25 @@ def getCountyId(longitude, latitude, pbar):
     pbar.update(1)
     return "NaN"
 
-with open('accidents_mini.csv', 'r') as dataFile:
+with open('accidents.csv', 'r') as dataFile:
     dataset = pd.read_csv(dataFile, sep=';')
-    # dataset = dataset.head(2000)
-    # print(dataset.head())
+    print(len(dataset))
 
-    # print(len(dataset))
-    # dataset['county_id'] = getCountyId(dataset.Latitude, dataset.Longitude)
-    # dataset.apply(lambda accident: getCountyId(accident))
-    pbar = tqdm(total=len(dataset))
+    step = math.floor(len(dataset)/4)
+    # step = 2000
+    index = int(sys.argv[1]) # 1 to 4
+
+    print("Index:", str(index))
+
+    start = step * (index - 1)
+    end = step * index
+    print(start, end)
+
+    dataset = dataset.iloc[start:end]
+    
+    pbar = tqdm(total=step)
     dataset['county'] = np.vectorize(getCountyId)(dataset['Longitude'], dataset['Latitude'], pbar)
-    # print(dataset.iloc[dataset.columns, 'county_id'])
     pbar.close()
-    dataset.to_csv("accidents_mini_with_county4.csv", sep=';')
+    dataset.to_csv("accidents_with_county" + str(index) + ".csv", sep=';')
 
     print(counties_problems)

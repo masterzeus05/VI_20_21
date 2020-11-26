@@ -8,6 +8,12 @@ let svg_pyramid_bar_chart = null;
 let selectedCounties = new Set();
 let selectedMinYear = 2005, selectedMaxYear = 2019;
 let currentAccidentData = null;
+let isDirty = false;
+
+let ageBandsKeys = Object.keys(translations.Age_Band_of_Driver)
+    .filter( (k) => k > 3)
+    .reverse();
+let ageBands = ageBandsKeys.map( k => translations.Age_Band_of_Driver[k]);
 
 let dispatch = d3.dispatch("countyEvent");
 
@@ -45,38 +51,39 @@ getData();
 
 // Gets data from dataset
 function getData() {
-    d3.dsv(";", "data/accidents_mini_with_county.csv", function(d) {
+    d3.dsv(";", "data/accidents_with_county_union_zip.csv", function(d) {
         return {
-            Accident_Index: d.Accident_Index,
-            Accident_Severity: d.Accident_Severity,
-            Age_Band_of_Driver: d.Age_Band_of_Driver,
+            Index: +d.Index,
+            Accident_Severity: +d.Accident_Severity,
+            Age_Band_of_Driver: +d.Age_Band_of_Driver,
             county: d.county,
             Date: d.Date,
-            Day_of_Week: d.Day_of_Week,
+            Day_of_Week: +d.Day_of_Week,
             Latitude: +d.Latitude,
-            Light_Conditions: d.Light_Conditions,
+            Light_Conditions: +d.Light_Conditions,
             Longitude: +d.Longitude,
             Number_of_Casualties: +d.Number_of_Casualties,
             Number_of_Vehicles: +d.Number_of_Vehicles,
-            Road_Surface_Conditions: d.Road_Surface_Conditions,
+            Road_Surface_Conditions: +d.Road_Surface_Conditions,
             Road_Type: d.Road_Type,
-            Sex_of_Driver: d.Sex_of_Driver,
+            Sex_of_Driver: +d.Sex_of_Driver,
             Speed_limit: +d.Speed_limit,
             Time: d.Time,
             Timestamp: new Date(d.Date + ' ' + d.Time),
-            Urban_or_Rural_Area: d.Urban_or_Rural_Area,
+            Urban_or_Rural_Area: +d.Urban_or_Rural_Area,
             Vehicle_Type: d.Vehicle_Type,
             Vehicle_Year: +d.Vehicle_Year,
-            Weather_Conditions: d.Weather_Conditions,
+            Weather_Conditions: +d.Weather_Conditions,
             Year: +d.Year,
-            make: d.make
+            make: d.make,
+            count: d.count
         }
     }).then(function(data, error) {
         if (error != null) {
             console.log(error);
         }
         accident_data = data;
-        currentAccidentData = accident_data;
+        currentAccidentData = data;
 
         d3.json("data/uk_test.json").then(function(topology) {
             uk_data = topology;
@@ -183,21 +190,21 @@ function gen_choropleth_map() {
         .enter().append("path")
         .attr("d", path)
         .attr("fill", function (d) {
-            if (!groupedByCounties.has(getCountyName(d)) || groupedByCounties.get(getCountyName(d)) === undefined) {
+            if (!groupedByCounties.has(getCountyId(d)) || groupedByCounties.get(getCountyId(d)) === undefined) {
                 return "grey";
             }
-            return colorScaleMap(groupedByCounties.get(getCountyName(d)));
+            return colorScaleMap(groupedByCounties.get(getCountyId(d)));
         })
         .on("mouseover", function(event,d) {
             div.transition()
                 .duration(200)
                 .style("opacity", .9);
-            div.html(getCountyName(d) + " - Number: " + groupedByCounties.get(getCountyName(d)))
+            div.html(getCountyName(d) + " - Number: " + groupedByCounties.get(getCountyId(d)))
                 .style("left", (event.pageX) + "px")
                 .style("top", (event.pageY - 28) + "px");
 
             // Check if not selected
-            if (!selectedCounties.has(getCountyName(d))) {
+            if (!selectedCounties.has(getCountyId(d))) {
                 d3.select(event.target)
                     .style("stroke", "black")
                     .style("stroke-width", "0.2");
@@ -209,7 +216,7 @@ function gen_choropleth_map() {
                 .style("opacity", 0);
 
             // Check if not selected
-            if (!selectedCounties.has(getCountyName(d))) {
+            if (!selectedCounties.has(getCountyId(d))) {
                 d3.select(event.target)
                     .style("stroke", "transparent");
             }
@@ -243,11 +250,16 @@ function gen_pyramid_bar_chart() {
         v => v.length,
         d => d.Age_Band_of_Driver, d => d.Sex_of_Driver
     );
-    groupedByAgeGender.delete("11 - 15");
-    groupedByAgeGender.delete("6 - 10");
 
     // Sort map
-    groupedByAgeGender = new Map(Array.from(groupedByAgeGender).sort());
+    groupedByAgeGender = new Map(
+        Array.from(groupedByAgeGender)
+            .filter( e => e[0] > 3)
+            .sort( (a,b) => {
+                return (a[0] > b[0]) ? 1 : ((b[0] > a[0]) ? -1 : 0)
+            }).reverse()
+    );
+
 
     // Get max values
     let maxValue = 0;
@@ -274,14 +286,16 @@ function gen_pyramid_bar_chart() {
     // X axis
     let xAxisLeft = d3.axisBottom()
         .scale(xScale.copy().range([pointA, 0]))
-        .ticks(5);
+        .ticks(5)
+        .tickFormat(d3.format(".0s"));
 
     let xAxisRight = d3.axisBottom()
         .scale(xScale)
-        .ticks(5);
+        .ticks(5)
+        .tickFormat(d3.format(".0s"));
 
     // Y scale
-    let yScaleData = Array.from(groupedByAgeGender.keys()).sort().reverse();
+    let yScaleData = ageBandsKeys;
 
     let yScale = d3.scaleBand()
         .domain(yScaleData)
@@ -293,7 +307,8 @@ function gen_pyramid_bar_chart() {
     let yAxisLeft = d3.axisRight()
         .scale(yScale)
         .tickSize(4, 0)
-        .tickPadding(margin.middle - 4);
+        .tickPadding(margin.middle - 4)
+        .tickFormat(function(d,i){ return ageBands[i] });
 
     let yAxisRight = d3.axisLeft()
         .scale(yScale)
@@ -364,11 +379,11 @@ function gen_pyramid_bar_chart() {
         .attr("class", ".bar.left")
         .attr('x', 0)
         .attr('y', function(d) { return yScale(d[0]); })
-        .attr('width', function(d) { return xScale(d[1].get("Male")); })
+        .attr('width', function(d) { return xScale(d[1].get(1)); })
         .attr('height', yScale.bandwidth())
         .attr('fill', '#8ECEFD')
         .append("title")
-        .text(d => d[1].get("Male"));
+        .text(d => d[1].get(1));
 
     leftBarGroup.selectAll('rect').on("click", function(e, d) {
         console.log(e);
@@ -381,19 +396,17 @@ function gen_pyramid_bar_chart() {
         .attr("class", ".bar.right")
         .attr('x', 0)
         .attr('y', function(d) { return yScale(d[0]); })
-        .attr('width', function(d) { return xScale(d[1].get("Female")); })
+        .attr('width', function(d) { return xScale(d[1].get(2)); })
         .attr('height', yScale.bandwidth())
         .attr('fill', '#F88B9D')
         .append("title")
-        .text(d => d[1].get("Female"));
+        .text(d => d[1].get(2));
 }
 
 // Generate year slider
 function gen_year_slider() {
     let minYear = d3.min(accident_data, d => d.Year);
-    // FIXME: Use this when dataset is ready
-    // let maxYear = d3.max(accident_data, d => d.Year);
-    let maxYear = 2019;
+    let maxYear = d3.max(accident_data, d => d.Year);
 
     let width = 1500;
     let height = 65;
@@ -406,8 +419,13 @@ function gen_year_slider() {
     }
 
     slider_snap(minYear, maxYear, "#year_slider", width, height, margin, function(range) {
-        selectedMinYear = range[0];
-        selectedMaxYear = range[1];
+        let minYear = range[0];
+        let maxYear = range[1];
+
+        if (selectedMinYear === minYear && selectedMaxYear === maxYear) return;
+
+        selectedMinYear = minYear;
+        selectedMaxYear = maxYear;
 
         updateIdioms();
     });
@@ -427,12 +445,16 @@ function prepareCountyEvent() {
     dispatch.on("countyEvent", function(args) {
         // Get arguments
         let event = args.event, datum = args.datum;
-        let name = getCountyName(datum);
+        let id = getCountyId(datum);
 
         // Check if already selected
-        if (selectedCounties.has(name)) {
+        if (selectedCounties.has(id)) {
             // Unselect
-            selectedCounties.delete(name);
+            selectedCounties.delete(id);
+            isDirty = true;
+
+            // Update all idioms
+            updateIdioms();
 
             // Change stroke to unselected
             d3.select(event.target)
@@ -441,36 +463,39 @@ function prepareCountyEvent() {
         }
         else {
             // Select
-            selectedCounties.add(name);
+            selectedCounties.add(id);
+            isDirty = true;
+
+            // Update all idioms
+            updateIdioms();
 
             // Change stroke to selected
             d3.select(event.target)
                 .style("stroke", "black")
                 .style("stroke-width", "0.5");
         }
-
-        // Update all idioms
-        updateIdioms();
-
     })
 }
 
 // Prepare buttons
 function prepareButtons() {
     d3.select("#reset").on("click", function(event) {
+
+        isDirty = (selectedCounties.size !== 0);
+
         // Unselect counties
         svg_choropleth_map.selectAll("path")
             .filter(d => {
-                return selectedCounties.has(getCountyName(d));
+                return selectedCounties.has(getCountyId(d));
             })
             .style("stroke", "transparent");
         selectedCounties.clear();
 
-        // Recenter map
-        recenterMapFunc();
-
         // Update all idioms to reset data
         updateIdioms();
+
+        // Recenter map
+        recenterMapFunc();
     })
 }
 
@@ -491,18 +516,19 @@ function updateIdioms() {
             pointB = effectiveWidth - regionWidth;
 
         // Get custom dataset
-        let filteredAccidentData = currentAccidentData.filter(d => {
-            return d.Age_Band_of_Driver !== "" && d.Sex_of_Driver !== "Not known";
-        })
-        let groupedByAgeGender = d3.rollup(filteredAccidentData,
+        let groupedByAgeGender = d3.rollup(currentAccidentData,
             v => v.length,
             d => d.Age_Band_of_Driver, d => d.Sex_of_Driver
         );
-        groupedByAgeGender.delete("11 - 15");
-        groupedByAgeGender.delete("6 - 10");
 
         // Sort map
-        groupedByAgeGender = new Map(Array.from(groupedByAgeGender).sort());
+        groupedByAgeGender = new Map(
+            Array.from(groupedByAgeGender)
+                .filter( e => e[0] > 3)
+                .sort( (a,b) => {
+                    return (a[0] > b[0]) ? 1 : ((b[0] > a[0]) ? -1 : 0)
+                }).reverse()
+        );
 
         // Get max values
         let maxValue = 0;
@@ -520,14 +546,16 @@ function updateIdioms() {
         // X axis
         let xAxisLeft = d3.axisBottom()
             .scale(xScale.copy().range([pointA, 0]))
-            .ticks(5);
+            .ticks(5)
+            .tickFormat(d3.format(".0s"));
 
         let xAxisRight = d3.axisBottom()
             .scale(xScale)
-            .ticks(5);
+            .ticks(5)
+            .tickFormat(d3.format(".0s"));
 
         // Y scale
-        let yScaleData = Array.from(groupedByAgeGender.keys()).sort().reverse();
+        let yScaleData = ageBands;
 
         let yScale = d3.scaleBand()
             .domain(yScaleData)
@@ -539,7 +567,8 @@ function updateIdioms() {
         let yAxisLeft = d3.axisRight()
             .scale(yScale)
             .tickSize(4, 0)
-            .tickPadding(margin.middle - 4);
+            .tickPadding(margin.middle - 4)
+            .tickFormat(function(d,i){ return ageBands[i] })
 
         let yAxisRight = d3.axisLeft()
             .scale(yScale)
@@ -560,9 +589,9 @@ function updateIdioms() {
                 return 100 + (index * 200);
             })
             .duration(1000)
-            .attr('width', function(d) { return xScale(d[1].get("Male")); })
+            .attr('width', function(d) { return xScale(d[1].get(1)); })
             .select("title")
-            .text(d => d[1].get("Male"));
+            .text(d => d[1].get(1));
 
         svg_pyramid_bar_chart.select('.right-bar')
             .selectAll('rect')
@@ -570,8 +599,6 @@ function updateIdioms() {
             .join('rect')
             .attr("class", ".bar.right")
             .attr('x', 0)
-            .attr('y', function(d) { return yScale(d[0]); })
-            // .attr('width', 0)
             .attr('height', yScale.bandwidth())
             .attr('fill', '#F88B9D')
             .transition()
@@ -580,9 +607,9 @@ function updateIdioms() {
                 return 100 + (index * 200);
             })
             .duration(1000)
-            .attr('width', function(d) { return xScale(d[1].get("Female")); })
+            .attr('width', function(d) { return xScale(d[1].get(2)); })
             .select("title")
-            .text(d => d[1].get("Female"));
+            .text(d => d[1].get(2));
 
 
         // Draw Axes
@@ -607,6 +634,10 @@ function updateIdioms() {
             .call(xAxisRight);
     }
 
+    if (!isDirty) {
+        return;
+    }
+
     // Filter current data to use this counties
     currentAccidentData = getFilteredData();
 
@@ -629,7 +660,9 @@ function getFilteredData() {
     return currentAccidentData;
 }
 
-// Helper
+/**
+ * Helpers
+ */
 function translation(x,y) {
     return 'translate(' + x + ',' + y + ')';
 }
@@ -637,3 +670,17 @@ function translation(x,y) {
 function getCountyName(feature) {
     return feature.properties.LAD13NM;
 }
+
+function getCountyId(feature) {
+    return feature.properties.LAD13CDO;
+}
+
+function getGroupedData() {
+    return groupedAccidentData;
+}
+
+const aggregator = (agg, cur) => agg.concat(
+    Array.from(cur[1]).map(sportCount =>
+        [cur[0]].concat(statusCount)
+    )
+);

@@ -104,9 +104,9 @@ slider_snap = function(min, max, containerSelector, givenW, givenH, margin, call
             let d0 = s.map(x.invert);
             let d1 = d0.map(Math.round)
 
-            d3.select(this).transition().call(event.target.move, d1.map(x))
-
             callback(getRange());
+
+            d3.select(this).transition().call(event.target.move, d1.map(x))
         })
 
     // append brush to g
