@@ -496,10 +496,15 @@ function preparePyramidEvent() {
             // Select
             selectedPyramidBars.add(selectedBar);
 
+            let dasharray = event.target.getAttribute("width") + ",0,"
+                            + event.target.getAttribute("height") + ",0,"
+                            + event.target.getAttribute("width");
+
             // Change stroke to selected
             d3.select(event.target)
                 .style("stroke", "black")
-                .style("stroke-width", "0.5");
+                .style("stroke-width", "3")
+                .style("stroke-dasharray", (dasharray));
         }
 
         // Update all idioms
