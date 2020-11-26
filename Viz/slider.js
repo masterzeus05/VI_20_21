@@ -152,4 +152,10 @@ slider_snap = function(min, max, containerSelector, givenW, givenH, margin, call
 
     // select entire range
     gBrush.call(brush.move, range.map(x))
+
+    let reset = function() {
+        gBrush.transition().duration(1000).call(brush.move, range.map(x));
+    }
+
+    return {reset: reset};
 }

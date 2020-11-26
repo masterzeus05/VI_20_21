@@ -15,6 +15,8 @@ let ageBandsKeys = Object.keys(translations.Age_Band_of_Driver)
     .reverse();
 let ageBands = ageBandsKeys.map( k => translations.Age_Band_of_Driver[k]);
 
+let yearSlider;
+
 let dispatch = d3.dispatch("countyEvent");
 
 // Choropleth Map Chart Settings
@@ -416,7 +418,7 @@ function gen_year_slider() {
         right: 40
     }
 
-    let yearSlider = slider_snap(minYear, maxYear, "#year_slider", width, height, margin, function(range) {
+    yearSlider = slider_snap(minYear, maxYear, "#year_slider", width, height, margin, function(range) {
         let minYear = range[0];
         let maxYear = range[1];
 
@@ -481,15 +483,21 @@ function prepareCountyEvent() {
 function prepareButtons() {
     d3.select("#reset").on("click", function(event) {
 
-        isDirty = (selectedCounties.size !== 0);
-
         // Unselect counties
+        isDirty = (selectedCounties.size !== 0);
         svg_choropleth_map.selectAll("path")
             .filter(d => {
                 return selectedCounties.has(getCountyId(d));
             })
             .style("stroke", "transparent");
         selectedCounties.clear();
+
+        // Reset years
+        if (selectedMinYear !== 2005 || selectedMaxYear !== 2019) {
+            selectedMinYear = 2005;
+            selectedMaxYear = 2019;
+            isDirty = true;
+        }
 
         currentAccidentData = [];
 
@@ -498,6 +506,9 @@ function prepareButtons() {
 
         // Recenter map
         recenterMapFunc();
+
+        // Reset year slider
+        yearSlider.reset();
     })
 }
 
@@ -651,9 +662,8 @@ function getFilteredData() {
 
     // Check if filters reset
     if (currentAccidentData.length === 0) {
-        currentAccidentData = accident_data;
         isDirty = false;
-        return currentAccidentData;
+        return accident_data;
     }
 
     currentAccidentData = accident_data.filter(d => {
@@ -683,13 +693,3 @@ function getCountyName(feature) {
 function getCountyId(feature) {
     return feature.properties.LAD13CDO;
 }
-
-function getGroupedData() {
-    return groupedAccidentData;
-}
-
-const aggregator = (agg, cur) => agg.concat(
-    Array.from(cur[1]).map(sportCount =>
-        [cur[0]].concat(statusCount)
-    )
-);
