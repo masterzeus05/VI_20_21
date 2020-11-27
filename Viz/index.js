@@ -6,6 +6,7 @@ let svg_pyramid_bar_chart = null;
 
 
 let selectedCounties = new Set();
+let selectedPyramidBars = new Set();
 let selectedMinYear = 2005, selectedMaxYear = 2019;
 let currentAccidentData = null;
 let isDirty = false;
@@ -17,7 +18,7 @@ let ageBands = ageBandsKeys.map( k => translations.Age_Band_of_Driver[k]);
 
 let yearSlider;
 
-let dispatch = d3.dispatch("countyEvent");
+let dispatch = d3.dispatch("countyEvent", "pyramidEvent");
 
 // Choropleth Map Chart Settings
 let def_i1 = {
@@ -107,6 +108,7 @@ function processData() {
 
     // Events
     prepareCountyEvent();
+    preparePyramidEvent();
     prepareButtons();
 }
 
@@ -479,18 +481,84 @@ function prepareCountyEvent() {
     })
 }
 
+//Click on pyramid bar
+function preparePyramidEvent() {
+
+    svg_pyramid_bar_chart.selectAll("rect").on("click", (event, datum) => {
+        dispatch.call("pyramidEvent", this, {event: event, datum: datum});
+    });
+
+    dispatch.on("pyramidEvent", function(args) {
+        let event = args.event;
+        let datum = args.datum;
+
+        let age_band = datum[0];
+        let sex;
+        if (event.target.className["baseVal"] == ".bar.left"){
+            sex = "1";
+        }
+        else if(event.target.className["baseVal"] == ".bar.right"){
+            sex = "2";
+        }
+        else{
+            return;
+        }
+
+        selectedBar = age_band + "|" + sex;
+
+        // Check if already selected
+        if (selectedPyramidBars.has(selectedBar)) {
+            // Unselect
+            selectedPyramidBars.delete(selectedBar);
+            isDirty = true;
+
+            // Change stroke to unselected
+            d3.select(event.target)
+                .style("stroke", "none");
+        }
+        else {
+            // Select
+            selectedPyramidBars.add(selectedBar);
+            isDirty = true;
+
+            let dasharray = event.target.getAttribute("width") + ",0,"
+                            + event.target.getAttribute("height") + ",0,"
+                            + event.target.getAttribute("width");
+
+            // Change stroke to selected
+            d3.select(event.target)
+                .style("stroke", "black")
+                .style("stroke-width", "3")
+                .style("stroke-dasharray", (dasharray));
+        }
+
+        // Update all idioms
+        updateIdioms();
+
+    });
+}
+
 // Prepare buttons
 function prepareButtons() {
     d3.select("#reset").on("click", function(event) {
 
         // Unselect counties
-        isDirty = (selectedCounties.size !== 0);
+        isDirty = !(selectedCounties.size == 0 && selectedPyramidBars.size==0);
         svg_choropleth_map.selectAll("path")
             .filter(d => {
                 return selectedCounties.has(getCountyId(d));
             })
             .style("stroke", "transparent");
         selectedCounties.clear();
+
+        // Unselect bars
+        svg_pyramid_bar_chart.select('.left-bar')
+            .selectAll('rect')
+            .style("stroke", "transparent");
+        svg_pyramid_bar_chart.select('.right-bar')
+            .selectAll('rect')
+            .style("stroke", "transparent");
+        selectedPyramidBars.clear();
 
         // Reset years
         if (selectedMinYear !== 2005 || selectedMaxYear !== 2019) {
@@ -603,6 +671,15 @@ function updateIdioms() {
             })
             .duration(1000)
             .attr('width', function(d) { return xScale(d[1].get(1)); })
+            .style("stroke-dasharray" , function(d) { 
+                let bar_string = d[0] + "|1";
+                if (selectedPyramidBars.has(bar_string)){
+                    return (dasharray(xScale(d[1].get(1)), yScale.bandwidth()))
+                }
+                else{
+                    return "none";
+                }  
+            })
             .select("title")
             .text(d => d[1].get(1));
 
@@ -621,6 +698,15 @@ function updateIdioms() {
             })
             .duration(1000)
             .attr('width', function(d) { return xScale(d[1].get(2)); })
+            .style("stroke-dasharray" , function(d) { 
+                let bar_string = d[0] + "|2";
+                if (selectedPyramidBars.has(bar_string)){
+                    return (dasharray(xScale(d[1].get(2)), yScale.bandwidth()))
+                }
+                else{
+                    return "none";
+                }  
+            })
             .select("title")
             .text(d => d[1].get(2));
 
@@ -647,14 +733,97 @@ function updateIdioms() {
             .call(xAxisRight);
     }
 
+    function update_choropleth_map() {
+        let width = def_i1.width,
+            height = def_i1.height,
+            defaultCenter = def_i1.center,
+            defaultScale = def_i1.scale;
+
+        let projection = d3.geoMercator()
+            .center(defaultCenter)
+            .rotate([4.4, 0])
+            .scale(defaultScale)
+            .translate([width / 2, height / 2]);
+
+        let path = d3.geoPath()
+            .projection(projection);
+
+        let g = svg_choropleth_map.select("g");
+
+        let groupedByCounties = d3.rollup(currentAccidentDataForAllCounties, v => v.length, d => d.county);
+        groupedByCounties.delete('NaN');
+        console.log(groupedByCounties)
+
+        let max = Math.max(...groupedByCounties.values());
+        let min = Math.min(...groupedByCounties.values());
+
+        // Gets choropleth color scale
+        let colorScaleMap = d3.scaleLinear()
+            .domain([min, max])
+            .range(['rgba(255, 170, 170, 1)', 'rgba(255, 21, 21, 1)']);
+
+        let div = d3.select("body").append("div")
+                    .attr("class", "tooltip")
+                    .attr("id", "choropleth_tooltip")
+                    .style("opacity", 0);;
+        // Display the map
+        // Add counties
+        g.selectAll("path")
+            .data(uk_data.features)
+            .join("path")
+            .on("mouseover", function(event,d) {
+                div.transition()
+                    .duration(200)
+                    .style("opacity", .9);
+                div.html(getCountyName(d) + " - Number: " + groupedByCounties.get(getCountyId(d)))
+                    .style("left", (event.pageX) + "px")
+                    .style("top", (event.pageY - 28) + "px");
+
+                // Check if not selected
+                if (!selectedCounties.has(getCountyId(d))) {
+                    d3.select(event.target)
+                        .style("stroke", "black")
+                        .style("stroke-width", "0.2");
+                }
+            })
+            .on("mouseout", function(event, d) {
+                div.transition()
+                    .duration(500)
+                    .style("opacity", 0);
+
+                // Check if not selected
+                if (!selectedCounties.has(getCountyId(d))) {
+                    d3.select(event.target)
+                        .style("stroke", "transparent");
+                }
+            })
+            .transition()
+            .delay(300)
+            .duration(1000)
+            .attr("d", path)
+            .attr("fill", function (d) {
+                if (!groupedByCounties.has(getCountyId(d)) || groupedByCounties.get(getCountyId(d)) === undefined) {
+                    return "grey";
+                }
+                return colorScaleMap(groupedByCounties.get(getCountyId(d)));
+            });
+
+    }
+
     if (!isDirty) {
         return;
     }
 
+    allFilteredData = getFilteredData();
+
     // Filter current data to use this counties
-    currentAccidentData = getFilteredData();
+    currentAccidentData = allFilteredData[0];
+
+    // Filter current data to use all counties
+    currentAccidentDataForAllCounties = allFilteredData[1];
 
     updatePyramidBarChart();
+    update_choropleth_map();
 }
 
 // Update data according to filters
@@ -663,20 +832,38 @@ function getFilteredData() {
     // Check if filters reset
     if (currentAccidentData.length === 0) {
         isDirty = false;
-        return accident_data;
+        return [accident_data, accident_data];
     }
 
-    currentAccidentData = accident_data.filter(d => {
-        // Filter on counties
-        let f1 = selectedCounties.size === 0 || selectedCounties.has(d.county);
-
+    currentAccidentDataForAllCounties = accident_data.filter(d => {
         // Filter on years
-        let f2 = (d.Year >= selectedMinYear && d.Year <= selectedMaxYear);
-
-        return f1 && f2;
+        return (d.Year >= selectedMinYear && d.Year <= selectedMaxYear);
     });
 
-    return currentAccidentData;
+    if (selectedCounties.size === 0 && selectedPyramidBars.size==0){
+        return [currentAccidentDataForAllCounties, currentAccidentDataForAllCounties];
+    }
+
+    currentAccidentData = currentAccidentDataForAllCounties;
+
+    if (selectedCounties.size !== 0){
+        currentAccidentData = currentAccidentDataForAllCounties.filter(d => {
+            // Filter on counties
+            return selectedCounties.has(d.county);
+        });
+    }
+
+    if(selectedPyramidBars.size == 0){
+        return [currentAccidentData, currentAccidentDataForAllCounties];
+    }
+
+    pyramid_filters = filtersPyramidBar();
+
+    currentAccidentDataForAllCounties = currentAccidentDataForAllCounties.filter(d => {
+        return pyramid_filters.sex_filter.has(d.Sex_of_Driver) && pyramid_filters.age_filter.has(d.Age_Band_of_Driver);
+    })
+    
+    return [currentAccidentData, currentAccidentDataForAllCounties];
 }
 
 /**
@@ -692,4 +879,23 @@ function getCountyName(feature) {
 
 function getCountyId(feature) {
     return feature.properties.LAD13CDO;
+}
+
+function dasharray(w,h){
+    return w + ",0," + h + ",0," + w;
+}
+
+function filtersPyramidBar(){
+    array = Array.from(selectedPyramidBars);
+
+    let sexFilters = new Set();
+    let ageFilters = new Set();
+
+    for(i=0 ; i < array.length ; i++){
+        var age_sex = array[i].split("|");
+        sexFilters.add(parseInt(age_sex[1]));
+        ageFilters.add(parseInt(age_sex[0]));
+    }
+
+    return {sex_filter: sexFilters, age_filter: ageFilters};
 }
