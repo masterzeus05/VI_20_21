@@ -43,12 +43,14 @@ slider_snap = function(min, max, containerSelector, givenW, givenH, margin, call
     // labels
     let labelL = g.append('text')
         .attr('id', 'labelleft')
+        .attr('class', 'slider_label')
         .attr('x', 0)
         .attr('y', height + 5)
         .text(range[0])
 
     let labelR = g.append('text')
         .attr('id', 'labelright')
+        .attr('class', 'slider_label')
         .attr('x', 0)
         .attr('y', height + 5)
         .text(range[1])

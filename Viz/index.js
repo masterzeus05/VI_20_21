@@ -326,7 +326,7 @@ function gen_pyramid_bar_chart() {
     // X axis title
     g.append('text')
         .attr('dy', '.24em' )
-        .attr('x', effectiveWidth/2 - margin.left*2)
+        .attr('x', effectiveWidth/2 - margin.left*2.5)
         .attr('y', effectiveHeight)
         .text('Nº of Accidents');
 
@@ -409,11 +409,11 @@ function gen_year_slider() {
     let maxYear = d3.max(accident_data, d => d.Year);
 
     let width = 1500;
-    let height = 65;
+    let height = 75;
 
     let margin = {
         top: 15,
-        bottom: 15,
+        bottom: 25,
         left: 40,
         right: 40
     }
