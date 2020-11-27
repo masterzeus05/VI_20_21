@@ -225,6 +225,7 @@ function gen_choropleth_map() {
                     .style("stroke", "transparent");
             }
         });
+
 }
 
 // Generate pyramid bar chart
@@ -447,6 +448,12 @@ function prepareCountyEvent() {
     });
 
     dispatch.on("countyEvent", function(args) {
+        
+        let div = d3.select("body").select("#choropleth_tooltip");
+        div.transition()
+                    .duration(500)
+                    .style("opacity", 0);
+
         // Get arguments
         let event = args.event, datum = args.datum;
         let id = getCountyId(datum);
@@ -463,7 +470,7 @@ function prepareCountyEvent() {
             // Change stroke to unselected
             d3.select(event.target)
                 .style("stroke", "black")
-                .style("stroke-width", "0.2");
+                .style("stroke-width", "transparent");
         }
         else {
             // Select
@@ -762,10 +769,8 @@ function updateIdioms() {
             .domain([min, max])
             .range(['rgba(255, 170, 170, 1)', 'rgba(255, 21, 21, 1)']);
 
-        let div = d3.select("body").append("div")
-                    .attr("class", "tooltip")
-                    .attr("id", "choropleth_tooltip")
-                    .style("opacity", 0);;
+        let div = d3.select("body").select("#choropleth_tooltip");
+
         // Display the map
         // Add counties
         g.selectAll("path")
