@@ -173,6 +173,7 @@ function gen_choropleth_map() {
 
         // Apply the new zoom transform:
         svg_choropleth_map.transition()
+            .delay(300)
             .duration(1000)
             .call(zoom.transform, transform);
     }
@@ -900,4 +901,8 @@ function unroll(rollup, keys, label = "value", p = {}) {
             ? unroll(value, keys.slice(1), label, Object.assign({}, { ...p, [keys[0]]: key } ))
             : Object.assign({}, { ...p, [keys[0]]: key, [label] : value })
     ).flat();
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
