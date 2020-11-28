@@ -505,7 +505,7 @@ function prepareCountyEvent() {
             // Change stroke to unselected
             d3.select(event.target)
                 .style("stroke", "black")
-                .style("stroke-width", "transparent");
+                .style("stroke-width", "0.2");
         }
         else {
             // Select
@@ -559,7 +559,8 @@ function preparePyramidEvent() {
 
             // Change stroke to unselected
             d3.select(event.target)
-                .style("stroke", "none");
+                .style("stroke", "black")
+                .style("stroke-width", "0.5");
         }
         else {
             // Select
