@@ -386,6 +386,22 @@ function gen_pyramid_bar_chart() {
         .attr('y', function(d) { return yScale(d[0]); })
         .attr('width', function(d) { return xScale(d[1].get(1)); })
         .attr('height', yScale.bandwidth())
+        .on("mouseover", function(event,d) {
+            // Check if not selected
+            if (!selectedPyramidBars.has(barToString(event,d))) {
+                d3.select(event.target)
+                    .style("stroke", "black")
+                    .style("stroke-width", "0.5")
+                    .style("stroke-dasharray", (dasharray(xScale(d[1].get(1)), yScale.bandwidth())))
+            }
+        })
+        .on("mouseout", function(event, d) {
+            // Check if not selected
+            if (!selectedPyramidBars.has(barToString(event,d))) {
+                d3.select(event.target)
+                    .style("stroke", "transparent");
+            }
+        })
         .attr('fill', '#8ECEFD')
         .append("title")
         .text(d => d[1].get(1));
@@ -401,6 +417,22 @@ function gen_pyramid_bar_chart() {
         .attr('y', function(d) { return yScale(d[0]); })
         .attr('width', function(d) { return xScale(d[1].get(2)); })
         .attr('height', yScale.bandwidth())
+        .on("mouseover", function(event,d) {
+            // Check if not selected
+            if (!selectedPyramidBars.has(barToString(event,d))) {
+                d3.select(event.target)
+                    .style("stroke", "black")
+                    .style("stroke-width", "0.5")
+                    .style("stroke-dasharray", (dasharray(xScale(d[1].get(2)), yScale.bandwidth())))
+            }
+        })
+        .on("mouseout", function(event, d) {
+            // Check if not selected
+            if (!selectedPyramidBars.has(barToString(event,d))) {
+                d3.select(event.target)
+                    .style("stroke", "transparent");
+            }
+        })
         .attr('fill', '#F88B9D')
         .append("title")
         .text(d => d[1].get(2));
@@ -905,4 +937,20 @@ function unroll(rollup, keys, label = "value", p = {}) {
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function barToString(event,datum){
+    let age_band = datum[0];
+    let sex;
+    if (event.target.className["baseVal"] == ".bar.left"){
+        sex = "1";
+    }
+    else if(event.target.className["baseVal"] == ".bar.right"){
+        sex = "2";
+    }
+    else{
+        return;
+    }
+
+    return age_band + "|" + sex;
 }
