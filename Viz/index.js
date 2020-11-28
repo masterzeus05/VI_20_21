@@ -208,7 +208,10 @@ function gen_choropleth_map() {
             div.transition()
                 .duration(200)
                 .style("opacity", .9);
-            div.html(getCountyName(d) + " - Number: " + groupedByCounties.get(getCountyId(d)))
+
+            let value = groupedByCounties.get(getCountyId(d));
+            if (value === undefined) value = "N/A";
+            div.html(getCountyName(d) + " - Number: " + value)
                 .style("left", (event.pageX) + "px")
                 .style("top", (event.pageY - 28) + "px");
 
@@ -391,8 +394,7 @@ function gen_pyramid_bar_chart() {
             if (!selectedPyramidBars.has(barToString(event,d))) {
                 d3.select(event.target)
                     .style("stroke", "black")
-                    .style("stroke-width", "0.5")
-                    .style("stroke-dasharray", (dasharray(xScale(d[1].get(1)), yScale.bandwidth())))
+                    .style("stroke-width", "0.5");
             }
         })
         .on("mouseout", function(event, d) {
@@ -813,7 +815,10 @@ function updateIdioms() {
                 div.transition()
                     .duration(200)
                     .style("opacity", .9);
-                div.html(getCountyName(d) + " - Number: " + groupedByCounties.get(getCountyId(d)))
+
+                let value = groupedByCounties.get(getCountyId(d));
+                if (value === undefined) value = "N/A";
+                div.html(getCountyName(d) + " - Number: " + value)
                     .style("left", (event.pageX) + "px")
                     .style("top", (event.pageY - 28) + "px");
 
