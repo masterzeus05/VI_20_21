@@ -893,6 +893,9 @@ function updateIdioms() {
 
         //Set up legend axis
         d3.select("#legend-axis")
+            .transition()
+            .delay(1000)
+            .duration(1000)
             .call(legendAxis);
 
         // Display the map
