@@ -156,7 +156,7 @@ slider_snap = function(min, max, containerSelector, givenW, givenH, margin, call
     gBrush.call(brush.move, range.map(x))
 
     let reset = function() {
-        gBrush.transition().duration(1000).call(brush.move, range.map(x));
+        gBrush.transition().delay(1000).duration(1000).call(brush.move, range.map(x));
     }
 
     return {reset: reset};

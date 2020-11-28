@@ -33,6 +33,8 @@ let def_i1 = {
         left: 20,
         middle: 24
     },
+    legendWidth: 50,
+    legendHeight: 100,
     width: 350,
     height: 400,
     center: [1.5, 55.4],
@@ -173,7 +175,7 @@ function gen_choropleth_map() {
 
         // Apply the new zoom transform:
         svg_choropleth_map.transition()
-            .delay(300)
+            .delay(1000)
             .duration(1000)
             .call(zoom.transform, transform);
     }
@@ -188,8 +190,66 @@ function gen_choropleth_map() {
 
     // Gets choropleth color scale
     let colorScaleMap = d3.scaleLinear()
-        .domain([min, max])
+        .domain([0, max])
         .range(['rgba(255, 170, 170, 1)', 'rgba(255, 21, 21, 1)']);
+
+    // Add legend
+    let legend_g = svg_choropleth_map
+        .append('g')
+        .attr('id', 'legend-svg')
+        .attr('width', def_i1.legendWidth)
+        .attr('height', def_i1.legendHeight)
+        .attr('transform', translation(-def_i1.margin.right,def_i1.margin.top));
+
+    let countScale = d3.scaleLinear()
+        .domain([0, max])
+        .range([0, def_i1.legendHeight])
+
+    //Calculate the variables for the temp gradient
+    let numStops = 4;
+    let countRange = countScale.domain();
+    countRange[2] = countRange[1] - countRange[0];
+    let countPoint = [];
+    for(let i = 0; i < numStops; i++) {
+        countPoint.push(i * countRange[2]/(numStops-1) + countRange[0]);
+    }
+
+    //Create the gradient
+    legend_g.append("defs")
+        .append("linearGradient")
+        .attr("id", "legend-map")
+        .attr("y1", "0%").attr("x1", "0%")
+        .attr("y2", "100%").attr("x2", "0%")
+        .selectAll("stop")
+        .data(d3.range(numStops))
+        .enter()
+        .append("stop")
+        .attr("offset", function(d,i) {
+            return countScale( countPoint[i] )/ def_i1.legendHeight;
+        })
+        .attr("stop-color", function(d,i) {
+            return colorScaleMap( countPoint[i] );
+        });
+
+    legend_g.append("rect")
+        .attr("id", "legendRect")
+        .attr("x", width - def_i1.margin.right*1.5)
+        .attr("y", 0)
+        .attr("width", 10)
+        .attr("height", def_i1.legendHeight)
+        .style("fill", "url(#legend-map)");
+
+    //Define legend axis
+    let legendAxis = d3.axisRight()
+        .ticks(4)
+        .tickFormat(d3.format(".0s"))
+        .scale(countScale);
+
+    //Set up legend axis
+    legend_g.append("g")
+        .attr("id", "legend-axis")
+        .attr("transform", translation(width - def_i1.margin.right*1.5 + 10, 0))
+        .call(legendAxis);
 
 
     // Display the map
@@ -603,6 +663,7 @@ function prepareButtons() {
         // Unselect counties
         svg_choropleth_map.selectAll("path")
             .filter(d => {
+                if (d === null) return false;
                 return selectedCounties.has(getCountyId(d));
             })
             .style("stroke", "transparent");
@@ -787,10 +848,52 @@ function updateIdioms() {
 
         // Gets choropleth color scale
         let colorScaleMap = d3.scaleLinear()
-            .domain([min, max])
+            .domain([0, max])
             .range(['rgba(255, 170, 170, 1)', 'rgba(255, 21, 21, 1)']);
 
         let div = d3.select("body").select("#choropleth_tooltip");
+
+        // Update legend
+        let countScale = d3.scaleLinear()
+            .domain([0, max])
+            .range([0, def_i1.legendHeight])
+
+        //Calculate the variables for the temp gradient
+        let numStops = 4;
+        let countRange = countScale.domain();
+        countRange[2] = countRange[1] - countRange[0];
+        let countPoint = [];
+        for(let i = 0; i < numStops; i++) {
+            countPoint.push(i * countRange[2]/(numStops-1) + countRange[0]);
+        }
+
+        //Create the gradient
+        d3.select("#legend-map")
+            .attr("y1", "0%").attr("x1", "0%")
+            .attr("y2", "100%").attr("x2", "0%")
+            .selectAll("stop")
+            .data(d3.range(numStops))
+            .enter()
+            .join("stop")
+            .attr("offset", function(d,i) {
+                return countScale( countPoint[i] )/ def_i1.legendHeight;
+            })
+            .attr("stop-color", function(d,i) {
+                return colorScaleMap( countPoint[i] );
+            });
+
+        d3.select("#legendRect")
+            .style("fill", "url(#legend-map)");
+
+        //Define legend axis
+        let legendAxis = d3.axisRight()
+            .ticks(4)
+            .tickFormat(d3.format(".0s"))
+            .scale(countScale);
+
+        //Set up legend axis
+        d3.select("#legend-axis")
+            .call(legendAxis);
 
         // Display the map
         // Add counties
