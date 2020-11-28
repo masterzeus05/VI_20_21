@@ -404,6 +404,7 @@ function gen_pyramid_bar_chart() {
                     .style("stroke", "transparent");
             }
         })
+        .style("stroke-dasharray", d => (dasharray(xScale(d[1].get(1)), yScale.bandwidth())))
         .attr('fill', '#8ECEFD')
         .append("title")
         .text(d => d[1].get(1));
@@ -434,6 +435,7 @@ function gen_pyramid_bar_chart() {
                     .style("stroke", "transparent");
             }
         })
+        .style("stroke-dasharray", d => (dasharray(xScale(d[1].get(2)), yScale.bandwidth())))
         .attr('fill', '#F88B9D')
         .append("title")
         .text(d => d[1].get(2));
@@ -714,15 +716,7 @@ function updateIdioms() {
             })
             .duration(1000)
             .attr('width', function(d) { return xScale(d[1].get(1)); })
-            .style("stroke-dasharray" , function(d) { 
-                let bar_string = d[0] + "|1";
-                if (selectedPyramidBars.has(bar_string)){
-                    return (dasharray(xScale(d[1].get(1)), yScale.bandwidth()))
-                }
-                else{
-                    return "none";
-                }  
-            })
+            .style("stroke-dasharray" , d => dasharray(xScale(d[1].get(1)), yScale.bandwidth()))
             .select("title")
             .text(d => d[1].get(1));
 
@@ -741,15 +735,7 @@ function updateIdioms() {
             })
             .duration(1000)
             .attr('width', function(d) { return xScale(d[1].get(2)); })
-            .style("stroke-dasharray" , function(d) { 
-                let bar_string = d[0] + "|2";
-                if (selectedPyramidBars.has(bar_string)){
-                    return (dasharray(xScale(d[1].get(2)), yScale.bandwidth()))
-                }
-                else{
-                    return "none";
-                }  
-            })
+            .style("stroke-dasharray" , d => dasharray(xScale(d[1].get(2)), yScale.bandwidth()))
             .select("title")
             .text(d => d[1].get(2));
 
