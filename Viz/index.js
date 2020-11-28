@@ -4,6 +4,7 @@ let uk_data = null;
 let map_data = null;
 let pyramid_data = null;
 let test_data = null;
+let calendar_data = null;
 
 let svg_choropleth_map;
 let svg_pyramid_bar_chart = null;
@@ -23,6 +24,13 @@ let ageBands = ageBandsKeys.map( k => translations.Age_Band_of_Driver[k]);
 let yearSlider;
 
 let dispatch = d3.dispatch("countyEvent", "pyramidEvent");
+
+
+const ticksDays = [1,2,3,4,5,6,7]
+const daysOfWeek = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
+
+const ticksMonth = [1,2,3,4,5,6,7,8,9,10,11,12]
+const months = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"]
 
 // Choropleth Map Chart Settings
 let def_i1 = {
@@ -55,6 +63,19 @@ let def_i2 = {
     height: 400
 }
 
+// Calendar Heatmap Chart Settings
+let def_i3 = {
+    margin: {
+        top: 20,
+        right: 20,
+        bottom: 32,
+        left: 20,
+        middle: 24
+    },
+    width: 400,
+    height: 600
+}
+
 // MAIN
 getData();
 
@@ -66,7 +87,7 @@ function getData() {
             Age_Band_of_Driver: +d.Age_Band_of_Driver,
             county: d.county,
             // Index: d.Index,
-            // Day_of_Week: +d.Day_of_Week,
+            Day_of_Week: +d.Day_of_Week,
             // Light_Conditions: +d.Light_Conditions,
             // Number_of_Casualties: +d.Number_of_Casualties,
             // Number_of_Vehicles: +d.Number_of_Vehicles,
@@ -75,7 +96,7 @@ function getData() {
             Sex_of_Driver: +d.Sex_of_Driver,
             // Speed_limit: +d.Speed_limit,
             // Time: d.Time,
-            // Timestamp: new Date(d.Date + ' ' + d.Time),
+            Date: d.Date,
             // Urban_or_Rural_Area: +d.Urban_or_Rural_Area,
             // Vehicle_Type: +d.Vehicle_Type,
             // Vehicle_Year: +d.Vehicle_Year,
@@ -88,8 +109,9 @@ function getData() {
             console.log(error);
         }
         test_data = d3.rollup(data, v => v.length,
-            d => d.Year, d => d.Sex_of_Driver, d => d.Age_Band_of_Driver, d => d.county)
-        test_data = unroll(test_data, ['year','sex','age','county']);
+            d => d.Year, d => d.Sex_of_Driver, d => d.Age_Band_of_Driver,
+                d => d.county, d=>d.Day_of_Week, d => d.Date)
+        test_data = unroll(test_data, ['year','sex','age','county', 'dow', 'date']);
 
         accident_data = test_data;
         currentAccidentData = test_data;
@@ -108,6 +130,7 @@ function processData() {
     // Idioms
     gen_choropleth_map();
     gen_pyramid_bar_chart();
+    gen_calendar_heatmap();
 
     // Year slider
     gen_year_slider();
@@ -293,6 +316,93 @@ function gen_choropleth_map() {
                     .style("stroke", "transparent");
             }
         });
+
+}
+
+//Generate calendar heatmap
+function  gen_calendar_heatmap() {
+    let width = def_i3.width,
+        height = def_i3.height;
+
+    let squareWidth = 30;
+    let squareHeight = 15;
+
+    let dataset = d3.group(currentAccidentData, d=>d.date.slice(5));
+    let keys = Array.from(dataset.keys());
+
+    let min = d3.min(keys, d => dataset.get(d).length),
+        max = d3.max(keys, d => dataset.get(d).length);
+
+    let colors = d3.scaleLinear()
+        .domain([min, max])
+        .range(["#ffffff","#ff0000"]);
+
+    let monthScale = d3.scaleLinear()
+        .domain([1,12])
+        .range([45, width - 20])
+
+    let xAxis = d3.axisTop()
+        .scale(monthScale)
+        .tickValues(ticksMonth)
+        .tickFormat(function(d, i) {
+            return months[i];
+        });
+
+    let dayScale = d3.scaleLinear()
+        .domain([1, 31])
+        .range([21 + squareHeight/2,440]);
+
+    let yAxis = d3.axisLeft()
+        .scale(dayScale);
+
+    svg_calendar_heatmap = d3.select("#calendar_heatmap")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("class", "svg_group");
+
+    let g = svg_calendar_heatmap.append("g")
+        .attr("class", "svg_group");
+
+    g.append("g")
+        .attr("id", "xAxis")
+        .call(xAxis)
+        .attr("transform", translation(0,20))
+        .attr("color", "white")
+        .selectAll("text")
+        .attr("color", "black")
+        .attr("font-weight", "bold")
+        .attr("text-anchor", "middle")
+        .attr("font-size", "12");
+
+    g.append("g")
+        .attr("id", "yAxis")
+        .call(yAxis)
+        .attr("transform", translation(20,0))
+        .attr("color", "white")
+        .selectAll("text")
+        .attr("color", "black")
+        .attr("text-anchor", "middle")
+        .attr("font-size", "11");
+
+    let rects = g.append("g")
+        .attr("class", "rects");
+
+    rects.selectAll("rect")
+        .data(keys)
+        .join("rect")
+        .attr("class", ".rects")
+        .attr("width", squareWidth)
+        .attr("height", squareHeight)
+        .attr("x", d => monthScale(getMonth(d)) - squareWidth/2)
+        .attr("y", d => dayScale(getDay(d)) - squareHeight/2)
+        .attr("fill", d => colors(dataset.get(d).length))
+        .append("title")
+        .text(d => d + ", " + dataset.get(d).length);
+
+    rects.selectAll("rect").on("click", function(e, d){
+
+    });
 
 }
 
@@ -942,6 +1052,149 @@ function updateIdioms() {
 
     }
 
+    function update_calendar_heatmap() {
+        let squareWidth = 30;
+        let squareHeight = 15;
+
+        let width = def_i3.width,
+            height = def_i3.height;
+
+        let dataset = d3.group(calendar_data, d => d.date);
+        let keys = Array.from(dataset.keys());
+
+
+        if (isOneYear(keys)) {
+            squareWidth *= 12/7;
+            squareHeight *= 31/52;
+
+            let min = d3.min(keys, d => dataset.get(d).length),
+                max = d3.max(keys, d => dataset.get(d).length);
+
+            let dow = d3.scaleLinear()
+                .domain([1, 7])
+                .range([45, width - 20]);
+
+            let weekN = d3.scaleLinear()
+                .domain([1, 52])
+                .range([21 + squareHeight/2, 440]);
+
+            let xAxis = d3.axisTop()
+                .scale(dow)
+                .tickValues(ticksDays)
+                .tickFormat((d, i) => daysOfWeek[i]);
+
+            let yAxis = d3.axisLeft()
+                .scale(weekN);
+
+            let colors = d3.scaleLinear()
+                .domain([min, max])
+                .range(["#ffffff", "#ff0000"]);
+
+            svg_calendar_heatmap.select(".rects")
+                .selectAll("rect")
+                .data(keys)
+                .join("rect")
+                .attr("class", ".rects")
+                .attr("width", squareWidth)
+                .attr("height", squareHeight)
+                .transition()
+                .delay(300)
+                .duration(1000)
+                .attr("x", d => dow(dataset.get(d)[0].dow)-squareWidth/2)
+                .attr("y", d => weekN(getWeekNumber(d))-squareHeight/2)
+                .attr("fill", d => colors(dataset.get(d).length))
+                .select("title")
+                .text(d => d + ", " + dataset.get(d).length);
+
+            svg_calendar_heatmap.select("#xAxis")
+                .call(xAxis)
+                .attr("transform", translation(0, 20))
+                .attr("color", "white")
+                .selectAll("text")
+                .attr("color", "black")
+                .attr("font-weight", "bold")
+                .attr("text-anchor", "middle")
+                .attr("font-size", "12");
+
+            svg_calendar_heatmap.select("#yAxis")
+                .call(yAxis)
+                .attr("transform", translation(20, 0))
+                .attr("color", "white")
+                .selectAll("text")
+                .attr("color", "black")
+                .attr("font-weight", "bold")
+                .attr("text-anchor", "middle")
+                .attr("font-size", "12");
+
+
+        } else {
+            let dataset = d3.group(calendar_data, d => d.date.slice(5));
+            let keys = Array.from(dataset.keys());
+
+            let min = d3.min(keys, d => dataset.get(d).length),
+                max = d3.max(keys, d => dataset.get(d).length);
+
+            let colors = d3.scaleLinear()
+                .domain([min, max])
+                .range(["#ffffff", "#ff0000"]);
+
+            let monthScale = d3.scaleLinear()
+                .domain([1, 12])
+                .range([45, width - 20])
+
+            let xAxis = d3.axisTop()
+                .scale(monthScale)
+                .tickValues(ticksMonth)
+                .tickFormat(function (d, i) {
+                    return months[i];
+                });
+
+            let dayScale = d3.scaleLinear()
+                .domain([1, 31])
+                .range([21 + squareHeight / 2, 440]);
+
+            let yAxis = d3.axisLeft()
+                .scale(dayScale);
+
+            svg_calendar_heatmap.select(".rects")
+                .selectAll("rect")
+                .data(keys)
+                .join("rect")
+                .attr("class", ".rects")
+                .attr("width", squareWidth)
+                .attr("height", squareHeight)
+                .transition()
+                .delay(300)
+                .duration(1000)
+                .attr("x", d => monthScale(getMonth(d)) - squareWidth / 2)
+                .attr("y", d => dayScale(getDay(d)) - squareHeight / 2)
+                .attr("fill", d => colors(dataset.get(d).length))
+                .select("title")
+                .text(d => d + ", " + dataset.get(d).length);
+
+            svg_calendar_heatmap.select("#xAxis")
+                .call(xAxis)
+                .attr("transform", translation(0, 20))
+                .attr("color", "white")
+                .selectAll("text")
+                .attr("color", "black")
+                .attr("font-weight", "bold")
+                .attr("text-anchor", "middle")
+                .attr("font-size", "12");
+
+            svg_calendar_heatmap.select("#yAxis")
+                .call(yAxis)
+                .attr("transform", translation(20, 0))
+                .attr("color", "white")
+                .selectAll("text")
+                .attr("color", "black")
+                .attr("font-weight", "bold")
+                .attr("text-anchor", "middle")
+                .attr("font-size", "12");
+
+        }
+    }
+
     if (!isDirty) {
         return;
     }
@@ -950,6 +1203,7 @@ function updateIdioms() {
 
     updatePyramidBarChart();
     update_choropleth_map();
+    update_calendar_heatmap();
 }
 
 // Update data according to filters
@@ -985,6 +1239,12 @@ function getFilteredData() {
 
         return f2;
     })
+
+    calendar_data = map_data.filter(d => {
+        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
+
+        return f2;
+    });
 }
 
 /**
@@ -1047,4 +1307,41 @@ function barToString(event,datum){
     }
 
     return age_band + "|" + sex;
+}
+
+function getWeekNumber(arg) {
+    let date = new Date(arg);
+    let yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+    let firstWeekDay = yearStart.getUTCDay();
+    let diff = (date - yearStart) / 86400000;
+
+    return Math.ceil((diff + firstWeekDay + 1) / 7);
+}
+
+function isOneYear(keys) {
+    if (keys == null) {
+        return;
+    }
+
+    let currentYear = getYear(keys[0]);
+    let different = keys.some(function (k) {
+        if(getYear(k) !== currentYear) {
+            return true;
+        }
+    });
+
+    return !different;
+}
+
+function getYear(arg) {
+    let d = new Date(arg);
+    return d.getUTCFullYear();
+}
+
+function getMonth(arg) {
+    return parseInt(arg.slice(0,3));
+}
+
+function getDay(arg) {
+    return parseInt(arg.slice(3));
 }
