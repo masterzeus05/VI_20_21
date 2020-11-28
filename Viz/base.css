@@ -79,7 +79,8 @@ body {
 .idioms {
     margin: 8px 20px;
     display: grid;
-    grid-template-columns: 2fr 3fr 2fr 1fr;
+    grid-template-columns: 350px 600px 500px 300px;
+    grid-column-gap: 10px;
     grid-template-rows: 93%;
 }
 
