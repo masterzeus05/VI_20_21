@@ -3,6 +3,7 @@ let uk_data = null;
 
 let map_data = null;
 let pyramid_data = null;
+let test_data = null;
 
 let svg_choropleth_map;
 let svg_pyramid_bar_chart = null;
@@ -84,8 +85,12 @@ function getData() {
         if (error != null) {
             console.log(error);
         }
-        accident_data = data;
-        currentAccidentData = data;
+        test_data = d3.rollup(data, v => v.length,
+            d => d.Year, d => d.Sex_of_Driver, d => d.Age_Band_of_Driver, d => d.county)
+        test_data = unroll(test_data, ['year','sex','age','county']);
+
+        accident_data = test_data;
+        currentAccidentData = test_data;
 
         d3.json("data/uk_test.json").then(function(topology) {
             uk_data = topology;
@@ -174,7 +179,7 @@ function gen_choropleth_map() {
 
     svg_choropleth_map.call(zoom);
 
-    let groupedByCounties = d3.rollup(accident_data, v => v.length, d => d.county);
+    let groupedByCounties = d3.rollup(accident_data, v => d3.sum(v , d => d.value), d => d.county);
     groupedByCounties.delete('NaN');
 
     let max = Math.max(...groupedByCounties.values());
@@ -247,13 +252,8 @@ function gen_pyramid_bar_chart() {
         pointB = effectiveWidth - regionWidth;
 
     // Get custom dataset
-    let filteredAccidentData = currentAccidentData.filter(d => {
-        return d.Age_Band_of_Driver !== "" && d.Sex_of_Driver !== "Not known";
-    })
-    let groupedByAgeGender = d3.rollup(filteredAccidentData,
-        v => v.length,
-        d => d.Age_Band_of_Driver, d => d.Sex_of_Driver
-    );
+    let groupedByAgeGender = d3.rollup(accident_data, v => d3.sum(v , d => d.value), d => d.age, d => d.sex);
+    groupedByAgeGender.delete("");
 
     // Sort map
     groupedByAgeGender = new Map(
@@ -407,8 +407,8 @@ function gen_pyramid_bar_chart() {
 
 // Generate year slider
 function gen_year_slider() {
-    let minYear = d3.min(accident_data, d => d.Year);
-    let maxYear = d3.max(accident_data, d => d.Year);
+    let minYear = d3.min(accident_data, d => d.year);
+    let maxYear = d3.max(accident_data, d => d.year);
 
     selectedMaxYear = maxYear;
     selectedMinYear = minYear;
@@ -608,11 +608,7 @@ function updateIdioms() {
         let pointA = regionWidth,
             pointB = effectiveWidth - regionWidth;
 
-        // Get custom dataset
-        let groupedByAgeGender = d3.rollup(pyramid_data,
-            v => v.length,
-            d => d.Age_Band_of_Driver, d => d.Sex_of_Driver
-        );
+        let groupedByAgeGender = d3.rollup(pyramid_data, v => d3.sum(v , d => d.value), d => d.age, d => d.sex);
 
         // Sort map
         groupedByAgeGender = new Map(
@@ -762,7 +758,7 @@ function updateIdioms() {
 
         let g = svg_choropleth_map.select("g");
 
-        let groupedByCounties = d3.rollup(map_data, v => v.length, d => d.county);
+        let groupedByCounties = d3.rollup(map_data, v => d3.sum(v , d => d.value), d => d.county);
         groupedByCounties.delete('NaN');
 
         let max = Math.max(...groupedByCounties.values());
@@ -836,32 +832,32 @@ function getFilteredData() {
     if (currentAccidentData.length === 0) {
         isDirty = false;
         currentAccidentData = accident_data;
+        map_data = currentAccidentData;
+        pyramid_data = currentAccidentData;
         return;
     }
 
-    currentAccidentData = accident_data.filter(d => {
-        // Filter on years
-        let f1 = (d.Year >= selectedMinYear && d.Year <= selectedMaxYear);
+    let pyramidFilters = filtersPyramidBar();
+
+    currentAccidentData = accident_data.filter( d => {
+        let f1 = d.year >= selectedMinYear && d.year <= selectedMaxYear;
 
         return f1;
     });
 
-    let pyramid_filters = filtersPyramidBar();
+    map_data = currentAccidentData.filter( d => {
+        let f3 =  (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
 
-    map_data = currentAccidentData.filter(d => {
-        // Filter on sex and age
-        let f3 = (pyramid_filters.age_filter.size === 0 && pyramid_filters.sex_filter.size === 0) ||
-            (pyramid_filters.sex_filter.has(d.Sex_of_Driver) && pyramid_filters.age_filter.has(d.Age_Band_of_Driver));
+        let f4 =  (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
 
-        return f3;
-    }).map( d => { return { county: d.county }});
+        return f3 && f4;
+    });
 
     pyramid_data = currentAccidentData.filter(d => {
-        // Filter on counties
-        let f2 = (selectedCounties.size === 0 || selectedCounties.has(d.county))
+        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
 
         return f2;
-    }).map( d => { return { Age_Band_of_Driver: d.Age_Band_of_Driver, Sex_of_Driver: d.Sex_of_Driver }});
+    })
 }
 
 /**
@@ -896,4 +892,12 @@ function filtersPyramidBar(){
     }
 
     return {sex_filter: sexFilters, age_filter: ageFilters};
+}
+
+function unroll(rollup, keys, label = "value", p = {}) {
+    return Array.from(rollup, ([key, value]) =>
+        value instanceof Map
+            ? unroll(value, keys.slice(1), label, Object.assign({}, { ...p, [keys[0]]: key } ))
+            : Object.assign({}, { ...p, [keys[0]]: key, [label] : value })
+    ).flat();
 }
