@@ -32,6 +32,7 @@ body {
 #title {
     color: #ffffff;
     font-weight: lighter;
+    margin: 14px 0 0 0;
 }
 
 /* Slider */
@@ -67,6 +68,7 @@ body {
 .btn {
     font-family: arial, calibri, sans serif;
     padding: 10px;
+    margin-bottom: 11px;
     border: solid 1px black;
     color: white;
     background: rgb(232 102 102);
@@ -78,12 +80,12 @@ body {
     margin: 8px 20px;
     display: grid;
     grid-template-columns: 2fr 3fr 2fr 1fr;
-    grid-template-rows: 95%;
+    grid-template-rows: 93%;
 }
 
 .idiom {
     border: 1px black solid;
-    margin: 10px;
+    margin: 7px;
     border-radius: 30pt;
     background-color: #ffffff;
     text-align: center;
