@@ -423,7 +423,6 @@ function gen_pyramid_bar_chart() {
                 d3.select(event.target)
                     .style("stroke", "black")
                     .style("stroke-width", "0.5")
-                    .style("stroke-dasharray", (dasharray(xScale(d[1].get(2)), yScale.bandwidth())))
             }
         })
         .on("mouseout", function(event, d) {
