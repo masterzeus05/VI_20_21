@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <transformation>
   <info>
-    <name>GroupBy</name>
+    <name>FilterYears</name>
     <description/>
     <extended_description/>
     <trans_version/>
@@ -427,23 +427,23 @@
     <clusterschemas>
     </clusterschemas>
     <created_user>-</created_user>
-    <created_date>2020/11/26 15:24:11.843</created_date>
+    <created_date>2020/11/28 11:34:45.160</created_date>
     <modified_user>-</modified_user>
-    <modified_date>2020/11/26 15:24:11.843</modified_date>
-    <key_for_session_key>H4sIAAAAAAAAAAMAAAAAAAAAAAA=</key_for_session_key>
+    <modified_date>2020/11/28 11:34:45.160</modified_date>
+    <key_for_session_key/>
     <is_key_private>N</is_key_private>
   </info>
   <notepads>
   </notepads>
   <order>
     <hop>
-      <from>Group by</from>
-      <to>Text file output</to>
+      <from>CSV file input</from>
+      <to>Filter rows</to>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>CSV file input</from>
-      <to>Group by</to>
+      <from>Filter rows</from>
+      <to>Text file output</to>
       <enabled>Y</enabled>
     </hop>
   </order>
@@ -458,7 +458,7 @@
       <method>none</method>
       <schema_name/>
     </partitioning>
-    <filename>${Internal.Entry.Current.Directory}/accidents_with_county_union_2010s.csv</filename>
+    <filename>${Internal.Entry.Current.Directory}/Accidents_with_county_union_zip2.csv</filename>
     <filename_field/>
     <rownum_field/>
     <include_filename>N</include_filename>
@@ -692,14 +692,14 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>224</xloc>
-      <yloc>64</yloc>
+      <xloc>288</xloc>
+      <yloc>144</yloc>
       <draw>Y</draw>
     </GUI>
   </step>
   <step>
-    <name>Group by</name>
-    <type>GroupBy</type>
+    <name>Filter rows</name>
+    <type>FilterRows</type>
     <description/>
     <distribute>Y</distribute>
     <custom_distribution/>
@@ -708,36 +708,25 @@
       <method>none</method>
       <schema_name/>
     </partitioning>
-    <all_rows>N</all_rows>
-    <ignore_aggregate>N</ignore_aggregate>
-    <field_ignore/>
-    <directory>%%java.io.tmpdir%%</directory>
-    <prefix>grp</prefix>
-    <add_linenr>N</add_linenr>
-    <linenr_fieldname/>
-    <give_back_row>N</give_back_row>
-    <group>
-      <field>
-        <name>Sex_of_Driver</name>
-      </field>
-      <field>
-        <name>Age_Band_of_Driver</name>
-      </field>
-      <field>
-        <name>county</name>
-      </field>
-      <field>
-        <name>Year</name>
-      </field>
-    </group>
-    <fields>
-      <field>
-        <aggregate>count</aggregate>
-        <subject>Time</subject>
-        <type>COUNT_ANY</type>
-        <valuefield/>
-      </field>
-    </fields>
+    <send_true_to>Text file output</send_true_to>
+    <send_false_to/>
+    <compare>
+      <condition>
+        <negated>N</negated>
+        <leftvalue>Year</leftvalue>
+        <function>&gt;=</function>
+        <rightvalue/>
+        <value>
+          <name>constant</name>
+          <type>Integer</type>
+          <text>2015</text>
+          <length>-1</length>
+          <precision>0</precision>
+          <isnull>N</isnull>
+          <mask>####0;-####0</mask>
+        </value>
+      </condition>
+    </compare>
     <attributes/>
     <cluster_schema/>
     <remotesteps>
@@ -747,8 +736,8 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>224</xloc>
-      <yloc>272</yloc>
+      <xloc>288</xloc>
+      <yloc>224</yloc>
       <draw>Y</draw>
     </GUI>
   </step>
@@ -777,7 +766,7 @@
     <fileNameField/>
     <create_parent_folder>Y</create_parent_folder>
     <file>
-      <name>${Internal.Entry.Current.Directory}/accidents_grouped</name>
+      <name>${Internal.Entry.Current.Directory}/accidents_with_county_union_2010s</name>
       <servlet_output>N</servlet_output>
       <do_not_open_new_file_init>N</do_not_open_new_file_init>
       <extention>csv</extention>
@@ -795,7 +784,151 @@
     </file>
     <fields>
       <field>
-        <name>Sex_of_Driver</name>
+        <name>Accident_Severity</name>
+        <type>Integer</type>
+        <format>0</format>
+        <currency>$</currency>
+        <decimal>,</decimal>
+        <group>.</group>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>Date</name>
+        <type>Date</type>
+        <format>yyyy/MM/dd</format>
+        <currency/>
+        <decimal/>
+        <group/>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>Day_of_Week</name>
+        <type>Integer</type>
+        <format>0</format>
+        <currency>$</currency>
+        <decimal>,</decimal>
+        <group>.</group>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>Light_Conditions</name>
+        <type>Integer</type>
+        <format>0</format>
+        <currency>$</currency>
+        <decimal>,</decimal>
+        <group>.</group>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>Number_of_Casualties</name>
+        <type>Integer</type>
+        <format>0</format>
+        <currency>$</currency>
+        <decimal>,</decimal>
+        <group>.</group>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>Number_of_Vehicles</name>
+        <type>Integer</type>
+        <format>0</format>
+        <currency>$</currency>
+        <decimal>,</decimal>
+        <group>.</group>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>Road_Surface_Conditions</name>
+        <type>Integer</type>
+        <format>0</format>
+        <currency>$</currency>
+        <decimal>,</decimal>
+        <group>.</group>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>Road_Type</name>
+        <type>Integer</type>
+        <format>0</format>
+        <currency>$</currency>
+        <decimal>,</decimal>
+        <group>.</group>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>Speed_limit</name>
+        <type>Integer</type>
+        <format>0</format>
+        <currency>$</currency>
+        <decimal>,</decimal>
+        <group>.</group>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>Time</name>
+        <type>String</type>
+        <format/>
+        <currency/>
+        <decimal/>
+        <group/>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>Urban_or_Rural_Area</name>
+        <type>Integer</type>
+        <format>0</format>
+        <currency>$</currency>
+        <decimal>,</decimal>
+        <group>.</group>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>Weather_Conditions</name>
+        <type>Integer</type>
+        <format>0</format>
+        <currency>$</currency>
+        <decimal>,</decimal>
+        <group>.</group>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>Year</name>
         <type>Integer</type>
         <format>0</format>
         <currency>$</currency>
@@ -819,19 +952,7 @@
         <precision>-1</precision>
       </field>
       <field>
-        <name>county</name>
-        <type>String</type>
-        <format/>
-        <currency/>
-        <decimal/>
-        <group/>
-        <nullif/>
-        <trim_type>both</trim_type>
-        <length>-1</length>
-        <precision>-1</precision>
-      </field>
-      <field>
-        <name>Year</name>
+        <name>Sex_of_Driver</name>
         <type>Integer</type>
         <format>0</format>
         <currency>$</currency>
@@ -843,12 +964,48 @@
         <precision>-1</precision>
       </field>
       <field>
-        <name>count</name>
+        <name>Vehicle_Type</name>
         <type>Integer</type>
         <format>0</format>
-        <currency/>
+        <currency>$</currency>
         <decimal>,</decimal>
         <group>.</group>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>make</name>
+        <type>String</type>
+        <format/>
+        <currency/>
+        <decimal/>
+        <group/>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>Vehicle_Year</name>
+        <type>Integer</type>
+        <format>0</format>
+        <currency>$</currency>
+        <decimal>,</decimal>
+        <group>.</group>
+        <nullif/>
+        <trim_type>both</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>county</name>
+        <type>String</type>
+        <format/>
+        <currency/>
+        <decimal/>
+        <group/>
         <nullif/>
         <trim_type>both</trim_type>
         <length>-1</length>
@@ -864,7 +1021,7 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>224</xloc>
+      <xloc>288</xloc>
       <yloc>352</yloc>
       <draw>Y</draw>
     </GUI>
