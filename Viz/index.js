@@ -530,7 +530,7 @@ function gen_year_slider() {
 
         isDirty = true;
 
-        updateIdioms();
+        setTimeout(function(){ updateIdioms(); }, 0)
     });
 }
 
@@ -562,9 +562,6 @@ function prepareCountyEvent() {
             selectedCounties.delete(id);
             isDirty = true;
 
-            // Update all idioms
-            updateIdioms();
-
             // Change stroke to unselected
             d3.select(event.target)
                 .style("stroke", "black")
@@ -575,14 +572,14 @@ function prepareCountyEvent() {
             selectedCounties.add(id);
             isDirty = true;
 
-            // Update all idioms
-            updateIdioms();
-
             // Change stroke to selected
             d3.select(event.target)
                 .style("stroke", "black")
                 .style("stroke-width", "0.5");
         }
+
+        // Update all idioms
+        setTimeout(function(){ updateIdioms(); }, 0)
     })
 }
 
@@ -617,9 +614,6 @@ function preparePyramidEvent() {
             selectedPyramidBars.delete(selectedBar);
             isDirty = true;
 
-            // Update all idioms
-            updateIdioms();
-
             // Change stroke to unselected
             d3.select(event.target)
                 .style("stroke", "black")
@@ -634,9 +628,6 @@ function preparePyramidEvent() {
                             + event.target.getAttribute("height") + ",0,"
                             + event.target.getAttribute("width");
 
-            // Update all idioms
-            updateIdioms();
-
             // Change stroke to selected
             d3.select(event.target)
                 .style("stroke", "black")
@@ -644,6 +635,8 @@ function preparePyramidEvent() {
                 .style("stroke-dasharray", (dasharray));
         }
 
+        // Update all idioms
+        setTimeout(function(){ updateIdioms(); }, 0)
     });
 }
 
@@ -680,13 +673,14 @@ function prepareButtons() {
 
         // Update all idioms to reset data
         currentAccidentData = [];
-        updateIdioms();
 
         // Recenter map
         recenterMapFunc();
 
         // Reset year slider
         yearSlider.reset();
+
+        setTimeout(function(){ updateIdioms(); }, 0)
     })
 }
 
@@ -734,12 +728,12 @@ function updateIdioms() {
         let xAxisLeft = d3.axisBottom()
             .scale(xScale.copy().range([pointA, 0]))
             .ticks(4)
-            .tickFormat(d3.format(".0s"));
+            .tickFormat(d3.format(".2s"));
 
         let xAxisRight = d3.axisBottom()
             .scale(xScale)
             .ticks(4)
-            .tickFormat(d3.format(".0s"));
+            .tickFormat(d3.format(".2s"));
 
         // Y scale
         let yScaleData = ageBands;
@@ -888,7 +882,7 @@ function updateIdioms() {
         //Define legend axis
         let legendAxis = d3.axisRight()
             .ticks(4)
-            .tickFormat(d3.format(".0s"))
+            .tickFormat(d3.format("0.2s"))
             .scale(countScale);
 
         //Set up legend axis
@@ -949,10 +943,23 @@ function updateIdioms() {
         return;
     }
 
-    getFilteredData();
+    // getFilteredData();
 
-    updatePyramidBarChart();
-    update_choropleth_map();
+    // updatePyramidBarChart();
+    // update_choropleth_map();
+
+    new Promise(function(resolve, reject) {
+        getFilteredData();
+        resolve();
+    }).then(function(val) {
+        new Promise(function(resolve, reject) {
+            updatePyramidBarChart();
+        }).then();
+
+        new Promise(function(resolve, reject) {
+            update_choropleth_map();
+        }).then();
+    });
 }
 
 // Update data according to filters
