@@ -4,10 +4,12 @@ let uk_data = null;
 let map_data = null;
 let pyramid_data = null;
 let test_data = null;
+let unit_data = null;
 
 let svg_choropleth_map;
 let svg_pyramid_bar_chart = null;
 
+let svg_unit_chart = null;
 
 let selectedCounties = new Set();
 let selectedPyramidBars = new Set();
@@ -19,10 +21,14 @@ let ageBandsKeys = Object.keys(translations.Age_Band_of_Driver)
     .filter( (k) => k > 3)
     .reverse();
 let ageBands = ageBandsKeys.map( k => translations.Age_Band_of_Driver[k]);
+let speedLimits = [];
 
 let yearSlider;
 
 let dispatch = d3.dispatch("countyEvent", "pyramidEvent");
+
+// SVG car size
+let carSize = 25;
 
 // Choropleth Map Chart Settings
 let def_i1 = {
@@ -55,6 +61,18 @@ let def_i2 = {
     height: 400
 }
 
+// Unit Chart Settings
+let def_i7 = {
+    margin: {
+        top: 40,
+        right: 0,
+        bottom: 100,
+        left: 0
+    },
+    width: 350,
+    height: 800
+}
+
 // MAIN
 getData();
 
@@ -73,10 +91,10 @@ function getData() {
             // Road_Surface_Conditions: +d.Road_Surface_Conditions,
             // Road_Type: +d.Road_Type,
             Sex_of_Driver: +d.Sex_of_Driver,
-            // Speed_limit: +d.Speed_limit,
+            Speed_limit: +d.Speed_limit,
             // Time: d.Time,
             // Timestamp: new Date(d.Date + ' ' + d.Time),
-            // Urban_or_Rural_Area: +d.Urban_or_Rural_Area,
+            Urban_or_Rural_Area: +d.Urban_or_Rural_Area,
             // Vehicle_Type: +d.Vehicle_Type,
             // Vehicle_Year: +d.Vehicle_Year,
             // Weather_Conditions: +d.Weather_Conditions,
@@ -94,8 +112,47 @@ function getData() {
         accident_data = test_data;
         currentAccidentData = test_data;
 
+        // FIXME: We gotta take these out
+        unit_data = d3.rollup(data, v => v.length,
+            d => d.Urban_or_Rural_Area, d => d.Speed_limit)
+        // unit_data = unroll(unit_data, ['area','speed_limit']);
+
         d3.json("data/uk_test.json").then(function(topology) {
             uk_data = topology;
+
+            d3.xml("data/car.svg")
+                .then(data => {
+                    d3.select('#unit_chart').append('defs')
+                        .append('pattern')
+                        .attr('id', 'car-pattern')
+                        .attr('patternUnits', 'objectBoundingBox')
+                        .attr('width', carSize)
+                        .attr('height', carSize)
+                        // Append svg to pattern
+                        .append('svg')
+                        .attr('x', 0)
+                        .attr('y', 0)
+                        .attr('width', carSize)
+                        .attr('height', carSize)
+                        .append(() => data.documentElement.cloneNode(true))
+                });
+
+            d3.xml("data/road.svg")
+                .then(data => {
+                    d3.select('#unit_chart').select('defs')
+                        .append('pattern')
+                        .attr('id', 'road-pattern')
+                        .attr('patternUnits', 'objectBoundingBox')
+                        .attr('width', 10)
+                        .attr('height', 10)
+                        // Append svg to pattern
+                        .append('svg')
+                        .attr('x', 0)
+                        .attr('y', 0)
+                        .attr('width', 10)
+                        .attr('height', 10)
+                        .append(() => data.documentElement.cloneNode(true))
+                });
 
             processData();
         });
@@ -108,6 +165,7 @@ function processData() {
     // Idioms
     gen_choropleth_map();
     gen_pyramid_bar_chart();
+    gen_unit_chart();
 
     // Year slider
     gen_year_slider();
@@ -499,6 +557,95 @@ function gen_pyramid_bar_chart() {
         .attr('fill', '#F88B9D')
         .append("title")
         .text(d => d[1].get(2));
+}
+
+// Generate unit chart
+function gen_unit_chart() {
+    // Check if already generated
+    if (svg_unit_chart !== null) {
+        return;
+    }
+
+    let margin = def_i7.margin;
+    let width = def_i7.width,
+        height = def_i7.height,
+        effectiveWidth = width-margin.left - margin.right,
+        effectiveHeight = height - margin.top - margin.bottom;
+
+    // Get custom dataset
+    // let groupedByAgeGender = d3.rollup(accident_data, v => d3.sum(v , d => d.value), d => d.age, d => d.sex);
+    // groupedByAgeGender.delete("");
+
+    let unrolledData = unroll(unit_data, ['area','speed_limit']);
+    unrolledData = unrolledData.filter( d => {
+                return d.area !== 3 && d.speed_limit >= 20;
+            })
+            .sort( (a,b) => {
+                if (a.area > b.area) return 1;
+                if (a.speed_limit > b.speed_limit) return 1;
+                return -1;
+            });
+
+    unit_data = d3.rollup(unrolledData, v => d3.sum(v, d => d.value),
+        d => d.area, d => d.speed_limit)
+
+    let usedData = unrolledData.filter( d => d.area === 1);
+
+    let totalNum = d3.sum(usedData, v => v.value);
+
+    // Set svg
+    svg_unit_chart = d3.select("#unit_chart")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
+    let g = svg_unit_chart.append("g")
+        .attr("transform", translation(margin.left, margin.top))
+        .attr("class", "svg_group");
+
+    // X scales
+    speedLimits = [...new Set(unrolledData.map( d => d.speed_limit))];
+    let xScale = d3.scaleBand()
+        .domain(speedLimits)
+        .range([0, effectiveWidth])
+        .paddingInner(0.1);
+
+    // Y scales
+    // let yScale = d3.scaleLinear()
+    //     .domain(yScaleData)
+    //     .range([0, effectiveHeight - margin.bottom])
+    //     .paddingInner(0.2)
+    //     .paddingOuter(0.2);
+
+    // Add lanes
+    g.selectAll('rect')
+        .data(speedLimits)
+        .join('g')
+        .attr("class", "unit-road")
+        .attr("transform", d => translation(xScale(d), margin.top))
+        // .attr('x', d => xScale(d))
+        // .attr('y', margin.top)
+        .attr('width', xScale.bandwidth())
+        .attr('height', effectiveHeight)
+        .append("svg:image")
+        .attr("xlink:href", "data/road.svg")
+        .attr('width', xScale.bandwidth())
+        .attr('height', effectiveHeight)
+        .attr('transform', translation(-xScale.bandwidth(), 0) + ", scale(3,1)")
+        .attr("preserveAspectRatio", "none")
+        // .attr("outline", "solid 1px black")
+
+    // d3.xml("data/road.svg").then(data => {
+    //     g.selectAll(".unit-road").nodes()
+    //         .forEach(n => {
+    //             n.append(data.documentElement.cloneNode(true))
+    //         })
+    //
+    //     g.selectAll(".unit-road")
+    //         .select("svg")
+    //         .attr("width", xScale.bandwidth())
+    //         .attr('height', effectiveHeight)
+    // });
+
 }
 
 // Generate year slider
