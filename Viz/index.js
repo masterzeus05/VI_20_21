@@ -28,7 +28,8 @@ let yearSlider;
 let dispatch = d3.dispatch("countyEvent", "pyramidEvent");
 
 // SVG car size
-let carSize = 25;
+let carSize = 55;
+let carPadding = 5;
 
 // Choropleth Map Chart Settings
 let def_i1 = {
@@ -119,40 +120,6 @@ function getData() {
 
         d3.json("data/uk_test.json").then(function(topology) {
             uk_data = topology;
-
-            d3.xml("data/car.svg")
-                .then(data => {
-                    d3.select('#unit_chart').append('defs')
-                        .append('pattern')
-                        .attr('id', 'car-pattern')
-                        .attr('patternUnits', 'objectBoundingBox')
-                        .attr('width', carSize)
-                        .attr('height', carSize)
-                        // Append svg to pattern
-                        .append('svg')
-                        .attr('x', 0)
-                        .attr('y', 0)
-                        .attr('width', carSize)
-                        .attr('height', carSize)
-                        .append(() => data.documentElement.cloneNode(true))
-                });
-
-            d3.xml("data/road.svg")
-                .then(data => {
-                    d3.select('#unit_chart').select('defs')
-                        .append('pattern')
-                        .attr('id', 'road-pattern')
-                        .attr('patternUnits', 'objectBoundingBox')
-                        .attr('width', 10)
-                        .attr('height', 10)
-                        // Append svg to pattern
-                        .append('svg')
-                        .attr('x', 0)
-                        .attr('y', 0)
-                        .attr('width', 10)
-                        .attr('height', 10)
-                        .append(() => data.documentElement.cloneNode(true))
-                });
 
             processData();
         });
@@ -591,8 +558,6 @@ function gen_unit_chart() {
 
     let usedData = unrolledData.filter( d => d.area === 1);
 
-    let totalNum = d3.sum(usedData, v => v.value);
-
     // Set svg
     svg_unit_chart = d3.select("#unit_chart")
         .append("svg")
@@ -617,34 +582,82 @@ function gen_unit_chart() {
     //     .paddingOuter(0.2);
 
     // Add lanes
-    g.selectAll('rect')
+    g.selectAll('g')
         .data(speedLimits)
         .join('g')
         .attr("class", "unit-road")
         .attr("transform", d => translation(xScale(d), margin.top))
-        // .attr('x', d => xScale(d))
-        // .attr('y', margin.top)
         .attr('width', xScale.bandwidth())
         .attr('height', effectiveHeight)
         .append("svg:image")
-        .attr("xlink:href", "data/road.svg")
+        .attr("xlink:href", "data/road-urban.svg")
         .attr('width', xScale.bandwidth())
         .attr('height', effectiveHeight)
         .attr('transform', translation(-xScale.bandwidth(), 0) + ", scale(3,1)")
         .attr("preserveAspectRatio", "none")
-        // .attr("outline", "solid 1px black")
 
-    // d3.xml("data/road.svg").then(data => {
-    //     g.selectAll(".unit-road").nodes()
-    //         .forEach(n => {
-    //             n.append(data.documentElement.cloneNode(true))
-    //         })
-    //
-    //     g.selectAll(".unit-road")
-    //         .select("svg")
-    //         .attr("width", xScale.bandwidth())
-    //         .attr('height', effectiveHeight)
-    // });
+    console.log(usedData)
+    let nCars = 10;
+
+    // Add cars
+    g.selectAll('.unit-road')
+        .append('g')
+        .data(usedData)
+        .attr("transform", translation(0, effectiveHeight) + ", scale(1,-1)")
+        .attr('class', d => 'car-group-' + d.speed_limit.toString())
+        // .append("svg")
+        // .attr('width', carSize)
+        // .attr('height', carSize)
+        // .append("svg:image")
+        // .attr('class', 'car')
+        // .attr("xlink:href", "data/car.svg")
+        // .attr('width', carSize)
+        // .attr('height', carSize)
+        // .attr('transform', translation(0, carSize) + ", scale(1,-1)")
+        // .attr("preserveAspectRatio", "xMinYMin slice")
+
+    let totalNum = d3.sum(usedData, v => v.value);
+
+    // Add cars
+    for (let v of usedData) {
+        let totalNumber = +parseFloat(v.value / totalNum * nCars).toFixed(2)
+        // console.log(v.speed_limit, carScale(v.value))
+        let roundNumber = Math.floor(totalNumber);
+        let i = 0;
+
+        // Add full cars
+        while (i < roundNumber) {
+            g.select(".car-group-" + v.speed_limit.toString())
+                .append("svg:image")
+                .attr('class', 'car')
+                .attr("xlink:href", "data/car.svg")
+                .attr('width', carSize)
+                .attr('height', carSize)
+                .attr('transform', translation(0, (carSize+carPadding) * (i+1)) + ", scale(1,-1)")
+                .attr("preserveAspectRatio", "xMinYMin slice")
+            i++;
+        }
+
+        // Add partial cars
+        let partialNumber = Math.round((totalNumber - roundNumber) * 100)/100;
+        console.log(v.speed_limit, partialNumber)
+        g.select(".car-group-" + v.speed_limit.toString())
+            .append("svg")
+            .attr('width', carSize)
+            .attr('height', carSize)
+            .attr('transform', translation(0, (carSize+carPadding) * (i+1)) + ", scale(1,-1)")
+            .attr('x', 0)
+            .attr('y', (carSize+carPadding) * (i+1))
+            .append("svg:image")
+            .attr('class', 'car')
+            .attr("xlink:href", "data/car.svg")
+            .attr('x', 0)
+            .attr('y', 0)
+            .attr('width', "100%")
+            .attr('height', (partialNumber*100).toString() + '%')
+            .attr("preserveAspectRatio", "xMinYMin slice")
+    }
+
 
 }
 
