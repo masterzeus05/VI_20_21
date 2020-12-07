@@ -104,8 +104,8 @@ function getData() {
 // After getting data, generate idioms and prepare events
 function processData() {
     // Idioms
-    gen_choropleth_map();
-    gen_pyramid_bar_chart();
+    //gen_choropleth_map();
+    //gen_pyramid_bar_chart();
     gen_lines_chart();
 
     // Events
@@ -450,14 +450,47 @@ function gen_lines_chart() {
                   ).map(x => x[0]);
     //Get max Y
     var maxY = 0;
-    for (var key of yearCasualtiesByMake.keys()){
-        if(d3.max(yearCasualtiesByMake.get(key), d => d.n) == 2 ||
-            d3.max(yearCasualtiesByMake.get(key), d => d.n) == 1){
-            console.log(yearCasualtiesByMake.get(key))
+    var min = 2020;
+    for (var key of worst_makes){
+        console.log(key,"   ",yearCasualtiesByMake.get(key))
+        for(i of yearCasualtiesByMake.get(key)){
+            if (i.n!=0){
+                min = Math.min(min,i.Year)
+                
+                break;
+            }
         }
+
         maxY = ( d3.max(yearCasualtiesByMake.get(key), d => d.n) > maxY ? d3.max(yearCasualtiesByMake.get(key), d => d.n) : maxY);
     }
 
+
+    min_Vehicle_Year = min - 1;
+
+
+    yearCasualtiesByMake = new Map()
+    for (var key of groupedByMakeYear.keys()){
+        let dict = {};
+        let dicts = [];
+        for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
+            if(groupedByMakeYear.get(key).get(i) == null){
+                dict.Year = i;
+                dict.n = 0;
+            }
+            else{
+                dict.Year = i;
+                dict.n = d3.sum(groupedByMakeYear.get(key).get(i), d=>d.Number_of_Casualties)/
+                            vehicleYearAccidents.get(i);
+            }
+            dicts.push(dict);
+            dict = {};
+        }
+        yearCasualtiesByMake.set(key, dicts);
+    }
+
+
+
+    console.log(min_Vehicle_Year)
     // set the ranges
 
     var yearsDomain=[];
@@ -465,10 +498,10 @@ function gen_lines_chart() {
         yearsDomain.push(i);
     }
 
-    var x = d3.scalePoint()
-              .domain(yearsDomain)
+    var x = d3.scaleLinear()
+              .domain([min_Vehicle_Year,max_Vehicle_Year])
               .range([0, effectiveWidth]);
-
+    
     var y = d3.scaleLinear()
               .domain([0, maxY])
               .range([effectiveHeight, 0]);
@@ -492,11 +525,12 @@ function gen_lines_chart() {
 
     var line = d3.line()
                  .x(function(d) { return x(d.year); })
-                 .y(function(d) { return y(d.casualties); });
+                 .y(function(d) { return y(d.casualties); })
+                 .curve(d3.curveLinear);
 
     var color = d3.scaleOrdinal(d3.schemeCategory10)
                   .domain(worst_makes);
-
+    console.log(yearCasualtiesByMake)
     var makes = color.domain().map(function(name) {
         return {
           name: name,
@@ -508,6 +542,7 @@ function gen_lines_chart() {
           })
         };
     });
+
 
     var make = svg.selectAll(".make")
     .data(makes)
@@ -521,20 +556,94 @@ function gen_lines_chart() {
       })
       .style("stroke", function(d) {
         return color(d.name);
-      });
+      })
+      
+      .on('mouseover', mouseover)
+    .on('mousemove', mousemove)
+    .on('mouseout', mouseout);
 
-    var xscaleDataFiltered = yearsDomain.filter(function (d, i) {
-        if (i % 6 == 0) return d;
-      });
+    
 
     svg.append("g")
       .attr("transform", translation(0,effectiveHeight))
-      .call(d3.axisBottom(x).tickValues(xscaleDataFiltered)
-      .tickSizeOuter(0));
+      .call(d3.axisBottom(x).ticks(10)
+      .tickFormat(d3.format("d")));
 
     svg.append("g")
        .call(d3.axisLeft(y));
+
+    var focus = svg
+    .append('g')
+    .append('circle')
+        .style("fill", "none")
+        .attr("stroke", "black")
+        .attr('r', 2.5)
+        .style("opacity", 0)
+
+    var new_g = svg.append('g')
+    
+    var text_back = new_g
+    .append('rect')
+    .attr("class","back_text")
+    .attr('width', 80)
+    .attr('height', 80)
+    .attr('fill', "#fffff1" )
+    .attr('stroke', "black")
+    .style("opacity", 0)
+
+
+    var focusText = new_g
+    .append('text')
+    .attr("class","focus_text")
+        .style("opacity", 0)
+        .attr("text-anchor", "left")
+        .attr("alignment-baseline", "middle")
+        .attr("font-size",10)
+
+    function mouseover() {
+        focus.style("opacity", 1)
+        focusText.style("opacity",1)
+    }
+    
+    function mousemove(event,datum) {
+        // recover coordinate we need
+        const pointer = d3.pointer(event, this);
+        var x0 = x.invert(pointer[0]);
+        var selected_year = yearsDomain[d3.bisectCenter(yearsDomain, x0)];
+        var yvalue = 0;
+        for (var k in datum.values){
+            if (datum.values[k].year === selected_year) {
+                yvalue = datum.values[k]
+                break;
+            }
+        }
+        focus
+            .attr("cx", x(selected_year))
+            .attr("cy", y(yvalue.casualties))
+        var n = yvalue.casualties.toFixed(2);
+        focusText
+            .html("x:" + selected_year + "  -  " + "y:" + n)
+            .attr("x", x(selected_year)+15)
+            .attr("y", y(yvalue.casualties))
+        
+        
+        text_back
+        .attr('width', d3.selectAll('.focus_text').node().getBoundingClientRect().width+2)
+        .attr('height', d3.selectAll('.focus_text').node().getBoundingClientRect().height+2)
+        .attr("x", parseInt(d3.selectAll('.focus_text').node().getAttribute("x"))-1)
+        .attr("y", parseInt(d3.selectAll('.focus_text').node().getAttribute("y")) -7)
+        .style("opacity", 1)
+        
+        
+    }
+    
+    function mouseout() {
+        focus.style("opacity", 0)
+        focusText.style("opacity", 0)
+        text_back.style("opacity", 0)
+    }
 }
+
 
 /**
 * Events
