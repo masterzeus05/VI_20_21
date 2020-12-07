@@ -28,8 +28,10 @@ let yearSlider;
 let dispatch = d3.dispatch("countyEvent", "pyramidEvent");
 
 // SVG car size
-let carSize = 55;
-let carPadding = 5;
+let carSize = 30;
+let carPadding = 8;
+let carSpeed = [0.10, 0.11, 0.12, 0.13, 0.14, 0.15];
+let speedSignSize = 50;
 
 // Choropleth Map Chart Settings
 let def_i1 = {
@@ -79,7 +81,7 @@ getData();
 
 // Gets data from dataset
 function getData() {
-    d3.dsv(";", "data/Accidents_with_county_union_zip2.csv", function(d) {
+    d3.dsv(";", "data/Accidents_with_county_union_zip3.csv", function(d) {
         return {
             // Accident_Severity: +d.Accident_Severity,
             Age_Band_of_Driver: +d.Age_Band_of_Driver,
@@ -380,12 +382,12 @@ function gen_pyramid_bar_chart() {
     let xAxisLeft = d3.axisBottom()
         .scale(xScale.copy().range([pointA, 0]))
         .ticks(5)
-        .tickFormat(d3.format(".0s"));
+        .tickFormat(d3.format(".2s"));
 
     let xAxisRight = d3.axisBottom()
         .scale(xScale)
         .ticks(5)
-        .tickFormat(d3.format(".0s"));
+        .tickFormat(d3.format(".2s"));
 
     // Y scale
     let yScaleData = ageBandsKeys;
@@ -596,32 +598,23 @@ function gen_unit_chart() {
         .attr('transform', translation(-xScale.bandwidth(), 0) + ", scale(3,1)")
         .attr("preserveAspectRatio", "none")
 
-    console.log(usedData)
-    let nCars = 10;
+    let nCars = 20;
 
-    // Add cars
+    // Add cars groups
     g.selectAll('.unit-road')
         .append('g')
         .data(usedData)
         .attr("transform", translation(0, effectiveHeight) + ", scale(1,-1)")
         .attr('class', d => 'car-group-' + d.speed_limit.toString())
-        // .append("svg")
-        // .attr('width', carSize)
-        // .attr('height', carSize)
-        // .append("svg:image")
-        // .attr('class', 'car')
-        // .attr("xlink:href", "data/car.svg")
-        // .attr('width', carSize)
-        // .attr('height', carSize)
-        // .attr('transform', translation(0, carSize) + ", scale(1,-1)")
-        // .attr("preserveAspectRatio", "xMinYMin slice")
 
     let totalNum = d3.sum(usedData, v => v.value);
+    let carMargin = (xScale.bandwidth() - carSize)/2;
 
     // Add cars
+    let speedIndex = 0;
     for (let v of usedData) {
         let totalNumber = +parseFloat(v.value / totalNum * nCars).toFixed(2)
-        // console.log(v.speed_limit, carScale(v.value))
+        // console.log(v.speed_limit, totalNumber)
         let roundNumber = Math.floor(totalNumber);
         let i = 0;
 
@@ -629,34 +622,94 @@ function gen_unit_chart() {
         while (i < roundNumber) {
             g.select(".car-group-" + v.speed_limit.toString())
                 .append("svg:image")
+                .data([[i, 1, speedIndex]])
                 .attr('class', 'car')
-                .attr("xlink:href", "data/car.svg")
+                .attr("xlink:href", "data/car_2.png")
                 .attr('width', carSize)
                 .attr('height', carSize)
-                .attr('transform', translation(0, (carSize+carPadding) * (i+1)) + ", scale(1,-1)")
-                .attr("preserveAspectRatio", "xMinYMin slice")
+                .attr('transform', translation(carMargin, (carSize+carPadding) * (i+1)) + ", scale(1,-1)")
             i++;
         }
 
         // Add partial cars
         let partialNumber = Math.round((totalNumber - roundNumber) * 100)/100;
-        console.log(v.speed_limit, partialNumber)
         g.select(".car-group-" + v.speed_limit.toString())
-            .append("svg")
+            .append("svg:image")
+            .data([[i, partialNumber, speedIndex]])
+            .attr('class', 'car')
+            .attr("xlink:href", "data/car_2.png")
             .attr('width', carSize)
             .attr('height', carSize)
-            .attr('transform', translation(0, (carSize+carPadding) * (i+1)) + ", scale(1,-1)")
-            .attr('x', 0)
-            .attr('y', (carSize+carPadding) * (i+1))
-            .append("svg:image")
-            .attr('class', 'car')
-            .attr("xlink:href", "data/car.svg")
-            .attr('x', 0)
-            .attr('y', 0)
-            .attr('width', "100%")
-            .attr('height', (partialNumber*100).toString() + '%')
-            .attr("preserveAspectRatio", "xMinYMin slice")
+            .attr('transform', translation(carMargin,
+                (carSize+carPadding)*i + (carSize*partialNumber+carPadding)) + ", scale(1,-1)")
+            .style('clip-path', "inset(0 0 " + ((1-partialNumber)*100).toString() + "% 0)")
+
+        speedIndex++;
     }
+
+    // Add top and bottom rectangles
+    svg_unit_chart.append('rect')
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("height", margin.bottom)
+        .attr("width", effectiveWidth)
+        .attr("fill", "white")
+
+    svg_unit_chart.append('rect')
+        .attr("x", 0)
+        .attr("y", 740)
+        .attr("height", margin.bottom)
+        .attr("width", effectiveWidth)
+        .attr("fill", "white")
+
+    // Add speed limits
+    let signMargin = xScale.bandwidth() - speedSignSize;
+    svg_unit_chart.append('g')
+        .attr('class', ' speed-signs')
+        .selectAll('.speed_signs')
+        .data(speedLimits)
+        .join('svg:image')
+        .attr("class", "speed-sign")
+        .attr("transform", d => translation(xScale(d) + signMargin, margin.top*1.1))
+        .attr('width', speedSignSize)
+        .attr('height', speedSignSize)
+        .attr("xlink:href", d => "data/speed-signs/" + d + ".svg")
+        .attr("preserveAspectRatio", "none")
+
+    svg_unit_chart.selectAll('.speed_signs')
+        .append('text')
+        .html(d => d)
+
+    // Add movement to cars
+    let animateCars = () => {
+        g.selectAll('.car')
+            // Go to top line
+            .transition()
+            .delay(3000)
+            .duration(d => {
+                let height = (effectiveHeight + carSize) - ((carSize + carPadding) * d[0] + (carSize * d[1] + carPadding));
+                return height / carSpeed[d[2]];
+            })
+            .ease(d3.easeLinear)
+            .attr('transform', translation(carMargin, effectiveHeight + carSize) + ", scale(1,-1)")
+            // Return to line below
+            .transition()
+            .duration(1)
+            .attr('transform', d => translation(carMargin, -carSize) + ", scale(1,-1)")
+            // Return to place
+            .transition()
+            .delay(1500)
+            .duration(1000)
+            .ease(d3.easeLinear)
+            .duration(d => {
+                let height = (carSize + carPadding) * d[0] + (carSize * d[1] + carPadding) + carSize;
+                return height / carSpeed[d[2]];
+            })
+            .attr('transform', d => translation(carMargin,
+                (carSize + carPadding) * d[0] + (carSize * d[1] + carPadding)) + ", scale(1,-1)")
+    }
+
+    animateCars();
 
 
 }

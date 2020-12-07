@@ -430,7 +430,7 @@
     <created_date>2020/11/28 11:11:22.805</created_date>
     <modified_user>-</modified_user>
     <modified_date>2020/11/28 11:11:22.805</modified_date>
-    <key_for_session_key/>
+    <key_for_session_key>H4sIAAAAAAAAAAMAAAAAAAAAAAA=</key_for_session_key>
     <is_key_private>N</is_key_private>
   </info>
   <notepads>
@@ -442,13 +442,23 @@
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Sort rows</from>
-      <to>Select values</to>
+      <from>Select values</from>
+      <to>Text file output</to>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>Select values</from>
-      <to>Text file output</to>
+      <from>Sort rows</from>
+      <to>Modified JavaScript value</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Modified JavaScript value</from>
+      <to>Filter rows</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Filter rows</from>
+      <to>Select values</to>
       <enabled>Y</enabled>
     </hop>
   </order>
@@ -736,6 +746,49 @@
     </GUI>
   </step>
   <step>
+    <name>Select values</name>
+    <type>SelectValues</type>
+    <description/>
+    <distribute>Y</distribute>
+    <custom_distribution/>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <fields>
+      <select_unspecified>N</select_unspecified>
+      <remove>
+        <name>Latitude</name>
+      </remove>
+      <remove>
+        <name>Longitude</name>
+      </remove>
+      <remove>
+        <name>Road_Type</name>
+      </remove>
+      <remove>
+        <name>Vehicle_Type</name>
+      </remove>
+      <remove>
+        <name>Modulo</name>
+      </remove>
+    </fields>
+    <attributes/>
+    <cluster_schema/>
+    <remotesteps>
+      <input>
+      </input>
+      <output>
+      </output>
+    </remotesteps>
+    <GUI>
+      <xloc>176</xloc>
+      <yloc>416</yloc>
+      <draw>Y</draw>
+    </GUI>
+  </step>
+  <step>
     <name>Sort rows</name>
     <type>SortRows</type>
     <description/>
@@ -802,7 +855,7 @@
     <fileNameField/>
     <create_parent_folder>Y</create_parent_folder>
     <file>
-      <name>${Internal.Entry.Current.Directory}/Accidents_with_county_union_zip2</name>
+      <name>${Internal.Entry.Current.Directory}/Accidents_with_county_union_zip3</name>
       <servlet_output>N</servlet_output>
       <do_not_open_new_file_init>N</do_not_open_new_file_init>
       <extention>csv</extention>
@@ -916,18 +969,6 @@
         <precision>-1</precision>
       </field>
       <field>
-        <name>Road_Type</name>
-        <type>Integer</type>
-        <format>0</format>
-        <currency>$</currency>
-        <decimal>,</decimal>
-        <group>.</group>
-        <nullif/>
-        <trim_type>both</trim_type>
-        <length>-1</length>
-        <precision>-1</precision>
-      </field>
-      <field>
         <name>Speed_limit</name>
         <type>Integer</type>
         <format>0</format>
@@ -1012,18 +1053,6 @@
         <precision>-1</precision>
       </field>
       <field>
-        <name>Vehicle_Type</name>
-        <type>Integer</type>
-        <format>0</format>
-        <currency>$</currency>
-        <decimal>,</decimal>
-        <group>.</group>
-        <nullif/>
-        <trim_type>both</trim_type>
-        <length>-1</length>
-        <precision>-1</precision>
-      </field>
-      <field>
         <name>make</name>
         <type>String</type>
         <format/>
@@ -1070,13 +1099,13 @@
     </remotesteps>
     <GUI>
       <xloc>176</xloc>
-      <yloc>304</yloc>
+      <yloc>512</yloc>
       <draw>Y</draw>
     </GUI>
   </step>
   <step>
-    <name>Select values</name>
-    <type>SelectValues</type>
+    <name>Filter rows</name>
+    <type>FilterRows</type>
     <description/>
     <distribute>Y</distribute>
     <custom_distribution/>
@@ -1085,14 +1114,70 @@
       <method>none</method>
       <schema_name/>
     </partitioning>
+    <send_true_to>Select values</send_true_to>
+    <send_false_to/>
+    <compare>
+      <condition>
+        <negated>N</negated>
+        <leftvalue>Modulo</leftvalue>
+        <function>=</function>
+        <rightvalue/>
+        <value>
+          <name>constant</name>
+          <type>Number</type>
+          <text>0.0</text>
+          <length>-1</length>
+          <precision>-1</precision>
+          <isnull>N</isnull>
+          <mask>####0.0#########;-####0.0#########</mask>
+        </value>
+      </condition>
+    </compare>
+    <attributes/>
+    <cluster_schema/>
+    <remotesteps>
+      <input>
+      </input>
+      <output>
+      </output>
+    </remotesteps>
+    <GUI>
+      <xloc>176</xloc>
+      <yloc>320</yloc>
+      <draw>Y</draw>
+    </GUI>
+  </step>
+  <step>
+    <name>Modified JavaScript value</name>
+    <type>ScriptValueMod</type>
+    <description/>
+    <distribute>Y</distribute>
+    <custom_distribution/>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <compatible>N</compatible>
+    <optimizationLevel>9</optimizationLevel>
+    <jsScripts>
+      <jsScript>
+        <jsScript_type>0</jsScript_type>
+        <jsScript_name>Script 1</jsScript_name>
+        <jsScript_script>//Script here
+var Modulo = Index % 3;
+</jsScript_script>
+      </jsScript>
+    </jsScripts>
     <fields>
-      <select_unspecified>N</select_unspecified>
-      <remove>
-        <name>Latitude</name>
-      </remove>
-      <remove>
-        <name>Longitude</name>
-      </remove>
+      <field>
+        <name>Modulo</name>
+        <rename>Modulo</rename>
+        <type>Number</type>
+        <length>16</length>
+        <precision>2</precision>
+        <replace>N</replace>
+      </field>
     </fields>
     <attributes/>
     <cluster_schema/>
@@ -1104,7 +1189,7 @@
     </remotesteps>
     <GUI>
       <xloc>176</xloc>
-      <yloc>224</yloc>
+      <yloc>240</yloc>
       <draw>Y</draw>
     </GUI>
   </step>
