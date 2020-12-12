@@ -599,6 +599,29 @@ function gen_lines_chart() {
         .attr("text-anchor", "left")
         .attr("alignment-baseline", "middle")
         .attr("font-size",10)
+    
+    var size = 20
+    svg.selectAll("mydots")
+        .data(worst_makes)
+        .enter()
+        .append("rect")
+        .attr("x", 180)
+        .attr("y", function(d,i){ return 5 + i*(size+5)}) // 100 is where the first dot appears. 25 is the distance between dots
+        .attr("width", size)
+        .attr("height", size)
+        .style("fill", function(d){ return color(d)})
+    
+    // Add one dot in the legend for each name.
+    svg.selectAll("mylabels")
+        .data(worst_makes)
+        .enter()
+        .append("text")
+        .attr("x", 180 + size*1.2)
+        .attr("y", function(d,i){ return 5 + i*(size+5) + (size/2)}) // 100 is where the first dot appears. 25 is the distance between dots
+        .style("fill", function(d){ return color(d)})
+        .text(function(d){ return d})
+        .attr("text-anchor", "left")
+        .style("alignment-baseline", "middle")
 
     function mouseover() {
         focus.style("opacity", 1)
