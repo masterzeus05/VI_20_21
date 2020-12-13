@@ -14,6 +14,7 @@ let svg_unit_chart = null;
 let selectedCounties = new Set();
 let selectedPyramidBars = new Set();
 let selectedMinYear, selectedMaxYear;
+let selectedRoadOptions = {};
 let currentAccidentData = null;
 let isDirty = false;
 
@@ -32,9 +33,11 @@ let carSize = 25;
 let carPadding = 7;
 let carSpeed = [0.10, 0.11, 0.12, 0.14, 0.16, 0.18];
 let speedSignSize = 40;
-let speedSignMargin = 8;
+let speedSignMargin = 2;
 let timeBetweenCarTransitions = 15000; // ms
 let carScaleSize = 25;
+let roadOptionSize = 30;
+let roadOptionPadding = 5;
 
 // Choropleth Map Chart Settings
 let def_i1 = {
@@ -86,7 +89,7 @@ getData();
 
 // Gets data from dataset
 function getData() {
-    d3.dsv(";", "data/Accidents_with_county_union_zip3.csv", function(d) {
+    d3.dsv(";", "data/dataset_2005-2010_zip.csv", function(d) {
         return {
             // Accident_Severity: +d.Accident_Severity,
             Age_Band_of_Driver: +d.Age_Band_of_Driver,
@@ -147,6 +150,7 @@ function processData() {
     // Events
     prepareCountyEvent();
     preparePyramidEvent();
+    prepareUnitEvent();
     prepareButtons();
 }
 
@@ -546,10 +550,6 @@ function gen_unit_chart() {
         effectiveWidth = width-margin.left - margin.right,
         effectiveHeight = height - margin.top - margin.bottom;
 
-    // Get custom dataset
-    // let groupedByAgeGender = d3.rollup(accident_data, v => d3.sum(v , d => d.value), d => d.age, d => d.sex);
-    // groupedByAgeGender.delete("");
-
     let unrolledData = unroll(unit_data, ['area','speed_limit']);
     unrolledData = unrolledData.filter( d => {
                 return d.area !== 3 && d.speed_limit >= 20;
@@ -631,7 +631,8 @@ function gen_unit_chart() {
     // Add cars
     let speedIndex = 0;
     for (let v of usedData) {
-        let totalNumber = +parseFloat(v.value / totalNum * nCars).toFixed(2)
+        selectedRoadOptions[v.speed_limit] = "urban";
+        let totalNumber = +parseFloat(v.value / totalNum * nCars).toFixed(2);
         let roundNumber = Math.floor(totalNumber);
         let i = 0;
 
@@ -707,16 +708,49 @@ function gen_unit_chart() {
 
     // Add urban/rural options
     {
-        topGroup.append('rect')
-            .attr("x", 20)
-            .attr("y", 10)
-            .attr("height", 10)
-            .attr("width", 10)
-            .attr("fill", "gray")
-            .on('click', (event) => {
-                // console.log(event)
-                g.selectAll('.car').interrupt();
+        let optionMargin = (xScale.bandwidth() - roadOptionSize)/2;
+
+        topGroup.append('g')
+            .attr('class', ' road-options')
+            .selectAll('.road-option')
+            .data(speedLimits)
+            .join('g')
+            .attr("class", "road-option")
+            .attr("transform", d => translation(xScale(d), optionMargin));
+
+        topGroup.selectAll('.road-option')
+            .append('svg:image')
+            .attr("class", "road-urban clickable")
+            .attr("id", d => "road-urban-" + d)
+            .attr('width', roadOptionSize)
+            .attr('height', roadOptionSize)
+            .attr("transform", translation(optionMargin, 0))
+            .attr("xlink:href", "data/road-option/urban.png")
+            .attr("preserveAspectRatio", "none")
+            .style("outline", "2px solid black")
+            .on('click', (event, d) => {
+                // g.selectAll('.car').interrupt();
+                dispatch.call("unitEvent", this, {event: event, datum: [d, 'urban']});
             })
+            .append('text')
+            .html('Urban')
+
+        topGroup.selectAll('.road-option')
+            .append('svg:image')
+            .attr("class", "road-rural clickable")
+            .attr("id", d => "road-rural-" + d)
+            .attr('width', roadOptionSize)
+            .attr('height', roadOptionSize)
+            .attr("transform", translation(optionMargin, roadOptionSize + roadOptionPadding))
+            .attr("xlink:href", "data/road-option/rural.png")
+            .attr("preserveAspectRatio", "none")
+            .style("outline", "1px solid black")
+            .on('click', (event, d) => {
+                // g.selectAll('.car').interrupt();
+                dispatch.call("unitEvent", this, {event: event, datum: [d, 'rural']});
+            })
+            .append('text')
+            .html('Rural')
     }
 
     // Add movement to cars
@@ -786,8 +820,6 @@ function gen_unit_chart() {
                 margin.bottom / 2))
             .html(' - ' + d3.format('.2s')(carValue))
     }
-
-    // TODO: Add option to change rural or urban
 
 
     // Y scales
@@ -935,6 +967,37 @@ function preparePyramidEvent() {
 
         // Update all idioms
         setTimeout(function(){ updateIdioms(); }, 0)
+    });
+}
+
+//Click on unit chart
+function prepareUnitEvent() {
+
+    dispatch.on("unitEvent", function(args) {
+        // Get arguments
+        let datum = args.datum;
+        let speedLimit = datum[0], option = datum[1];
+
+        // Check if already selected
+        if (selectedRoadOptions[speedLimit] === option) {
+            // None for now?
+        }
+        else {
+            // Unselect previous value
+            let previousOption = selectedRoadOptions[speedLimit];
+            svg_unit_chart.select("#road-" + previousOption + "-" + speedLimit)
+                .style("outline", "1px solid black")
+
+            // Select new value
+            selectedRoadOptions[speedLimit] = option;
+
+            // Change stroke to selected
+            svg_unit_chart.select("#road-" + option + "-" + speedLimit)
+                .style("outline", "2px solid black")
+        }
+
+        // Update all idioms
+        // setTimeout(function(){ updateIdioms(); }, 0)
     });
 }
 
@@ -1235,6 +1298,10 @@ function updateIdioms() {
                 return colorScaleMap(groupedByCounties.get(getCountyId(d)));
             });
 
+    }
+
+    function updateUnitChart() {
+        
     }
 
     if (!isDirty) {
