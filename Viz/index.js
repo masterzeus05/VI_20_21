@@ -5,6 +5,7 @@ let map_data = null;
 let pyramid_data = null;
 let test_data = null;
 let unit_data = null;
+let other_data = null;
 
 let svg_choropleth_map;
 let svg_pyramid_bar_chart = null;
@@ -16,7 +17,7 @@ let selectedPyramidBars = new Set();
 let selectedMinYear, selectedMaxYear;
 let selectedRoadOptions = {};
 let currentAccidentData = null;
-let isDirty = false;
+let isDirty = {1: false, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false};
 
 let ageBandsKeys = Object.keys(translations.Age_Band_of_Driver)
     .filter( (k) => k > 3)
@@ -29,6 +30,7 @@ let yearSlider;
 let dispatch = d3.dispatch("countyEvent", "pyramidEvent", "unitEvent");
 
 // Car and speed limit signs options
+let carNumber = 40;
 let carSize = 25;
 let carPadding = 7;
 let carSpeed = [0.10, 0.11, 0.12, 0.14, 0.16, 0.18];
@@ -82,7 +84,7 @@ let def_i7 = {
     height: 800
 }
 
-let carTransition;
+let animateCars;
 
 // MAIN
 getData();
@@ -92,7 +94,7 @@ function getData() {
     d3.dsv(";", "data/dataset_2005-2010_zip.csv", function(d) {
         return {
             // Accident_Severity: +d.Accident_Severity,
-            Age_Band_of_Driver: +d.Age_Band_of_Driver,
+            age: +d.Age_Band_of_Driver,
             county: d.county,
             // Index: d.Index,
             // Day_of_Week: +d.Day_of_Week,
@@ -101,15 +103,15 @@ function getData() {
             // Number_of_Vehicles: +d.Number_of_Vehicles,
             // Road_Surface_Conditions: +d.Road_Surface_Conditions,
             // Road_Type: +d.Road_Type,
-            Sex_of_Driver: +d.Sex_of_Driver,
-            Speed_limit: +d.Speed_limit,
+            sex: +d.Sex_of_Driver,
+            speed_limit: +d.Speed_limit,
             // Time: d.Time,
             // Timestamp: new Date(d.Date + ' ' + d.Time),
-            Urban_or_Rural_Area: +d.Urban_or_Rural_Area,
+            area: +d.Urban_or_Rural_Area,
             // Vehicle_Type: +d.Vehicle_Type,
             // Vehicle_Year: +d.Vehicle_Year,
             // Weather_Conditions: +d.Weather_Conditions,
-            Year: +d.Year,
+            year: +d.Year,
             // make: d.make
         }
     }).then(function(data, error) {
@@ -117,16 +119,12 @@ function getData() {
             console.log(error);
         }
         test_data = d3.rollup(data, v => v.length,
-            d => d.Year, d => d.Sex_of_Driver, d => d.Age_Band_of_Driver, d => d.county)
+            d => d.year, d => d.sex, d => d.age, d => d.county)
         test_data = unroll(test_data, ['year','sex','age','county']);
 
-        accident_data = test_data;
-        currentAccidentData = test_data;
-
-        // FIXME: We gotta take these out
-        unit_data = d3.rollup(data, v => v.length,
-            d => d.Urban_or_Rural_Area, d => d.Speed_limit)
-        // unit_data = unroll(unit_data, ['area','speed_limit']);
+        accident_data = data;
+        currentAccidentData = data;
+        other_data = data;
 
         d3.json("data/uk_test.json").then(function(topology) {
             uk_data = topology;
@@ -218,7 +216,8 @@ function gen_choropleth_map() {
 
     svg_choropleth_map.call(zoom);
 
-    let groupedByCounties = d3.rollup(accident_data, v => d3.sum(v , d => d.value), d => d.county);
+    let groupedByCounties = d3.rollup(accident_data, v => v.length,
+            d => d.county);
     groupedByCounties.delete('NaN');
 
     let max = Math.max(...groupedByCounties.values());
@@ -352,7 +351,7 @@ function gen_pyramid_bar_chart() {
         pointB = effectiveWidth - regionWidth;
 
     // Get custom dataset
-    let groupedByAgeGender = d3.rollup(accident_data, v => d3.sum(v , d => d.value), d => d.age, d => d.sex);
+    let groupedByAgeGender = d3.rollup(accident_data, v => v.length, d => d.age, d => d.sex);
     groupedByAgeGender.delete("");
 
     // Sort map
@@ -550,18 +549,18 @@ function gen_unit_chart() {
         effectiveWidth = width-margin.left - margin.right,
         effectiveHeight = height - margin.top - margin.bottom;
 
+    unit_data = d3.rollup(accident_data, v => v.length,
+        d => d.area, d => d.speed_limit)
+
     let unrolledData = unroll(unit_data, ['area','speed_limit']);
     unrolledData = unrolledData.filter( d => {
-                return d.area !== 3 && d.speed_limit >= 20;
-            })
-            .sort( (a,b) => {
-                if (a.area > b.area) return 1;
-                if (a.speed_limit > b.speed_limit) return 1;
-                return -1;
-            });
-
-    unit_data = d3.rollup(unrolledData, v => d3.sum(v, d => d.value),
-        d => d.area, d => d.speed_limit)
+        return d.area !== 3 && d.speed_limit >= 20;
+    })
+        .sort( (a,b) => {
+            if (a.area > b.area) return 1;
+            if (a.speed_limit > b.speed_limit) return 1;
+            return -1;
+        });
 
     let usedData = unrolledData.filter( d => d.area === 1);
 
@@ -594,13 +593,14 @@ function gen_unit_chart() {
             // console.log(d.target)
         })
         .append("svg:image")
+        .attr("class", "lane-image")
         .attr("xlink:href", "data/road-urban.svg")
         .attr('width', xScale.bandwidth())
         .attr('height', effectiveHeight)
         .attr('transform', translation(-xScale.bandwidth(), 0) + ", scale(3,1)")
         .attr("preserveAspectRatio", "none")
 
-    let nCars = 40;
+    let nCars = carNumber;
 
     // Add cars groups
     g.selectAll('.unit-road')
@@ -754,9 +754,9 @@ function gen_unit_chart() {
     }
 
     // Add movement to cars
-    let animateCars = () => {
+    animateCars = () => {
         let rerun = false;
-        carTransition = g.selectAll('.car')
+        g.selectAll('.car')
             // Go to top line
             .transition()
             .delay(3000)
@@ -890,7 +890,9 @@ function prepareCountyEvent() {
         if (selectedCounties.has(id)) {
             // Unselect
             selectedCounties.delete(id);
-            isDirty = true;
+            Object.keys(isDirty).map(function(key, index) {
+                if (key !== "1") isDirty[key] = true;
+            });
 
             // Change stroke to unselected
             d3.select(event.target)
@@ -900,7 +902,9 @@ function prepareCountyEvent() {
         else {
             // Select
             selectedCounties.add(id);
-            isDirty = true;
+            Object.keys(isDirty).map(function(key, index) {
+                if (key !== "1") isDirty[key] = true;
+            });
 
             // Change stroke to selected
             d3.select(event.target)
@@ -942,7 +946,9 @@ function preparePyramidEvent() {
         if (selectedPyramidBars.has(selectedBar)) {
             // Unselect
             selectedPyramidBars.delete(selectedBar);
-            isDirty = true;
+            Object.keys(isDirty).map(function(key, index) {
+                if (key !== "2") isDirty[key] = true;
+            });
 
             // Change stroke to unselected
             d3.select(event.target)
@@ -952,7 +958,9 @@ function preparePyramidEvent() {
         else {
             // Select
             selectedPyramidBars.add(selectedBar);
-            isDirty = true;
+            Object.keys(isDirty).map(function(key, index) {
+                if (key !== "2") isDirty[key] = true;
+            });
 
             let dasharray = event.target.getAttribute("width") + ",0,"
                             + event.target.getAttribute("height") + ",0,"
@@ -994,10 +1002,12 @@ function prepareUnitEvent() {
             // Change stroke to selected
             svg_unit_chart.select("#road-" + option + "-" + speedLimit)
                 .style("outline", "2px solid black")
+
+            isDirty["7"] = true;
         }
 
         // Update all idioms
-        // setTimeout(function(){ updateIdioms(); }, 0)
+        setTimeout(function(){ updateIdioms(); }, 0)
     });
 }
 
@@ -1061,7 +1071,8 @@ function updateIdioms() {
         let pointA = regionWidth,
             pointB = effectiveWidth - regionWidth;
 
-        let groupedByAgeGender = d3.rollup(pyramid_data, v => d3.sum(v , d => d.value), d => d.age, d => d.sex);
+        let groupedByAgeGender = d3.rollup(pyramid_data, v => v.length,
+                d => d.age, d => d.sex);
 
         // Sort map
         groupedByAgeGender = new Map(
@@ -1195,7 +1206,7 @@ function updateIdioms() {
 
         let g = svg_choropleth_map.select("g");
 
-        let groupedByCounties = d3.rollup(map_data, v => d3.sum(v , d => d.value), d => d.county);
+        let groupedByCounties = d3.rollup(map_data, v => v.length, d => d.county);
         groupedByCounties.delete('NaN');
 
         let max = Math.max(...groupedByCounties.values());
@@ -1256,8 +1267,6 @@ function updateIdioms() {
         // Display the map
         // Add counties
         g.selectAll("path")
-            .data(uk_data.features)
-            .join("path")
             .on("mouseover", function(event,d) {
                 div.transition()
                     .duration(200)
@@ -1301,29 +1310,162 @@ function updateIdioms() {
     }
 
     function updateUnitChart() {
-        
+        // Get sizes
+        let margin = def_i7.margin;
+        let width = def_i7.width,
+            height = def_i7.height,
+            effectiveWidth = width-margin.left - margin.right,
+            effectiveHeight = height - margin.top - margin.bottom;
+
+        unit_data = d3.rollup(currentAccidentData, v => v.length,
+            d => d.area, d => d.speed_limit);
+
+        let unrolledData = unroll(unit_data, ['area','speed_limit']);
+        unrolledData = unrolledData.filter( d => {
+            return d.area !== 3 && d.speed_limit >= 20;
+        })
+            .sort( (a,b) => {
+                if (a.speed_limit > b.speed_limit) return 1;
+                return -1;
+            });
+
+        let usedData = unrolledData.filter( (d,i) => {
+            let selected = selectedRoadOptions[d.speed_limit];
+            let current = translations.Urban_or_Rural_Area[d.area].toLowerCase();
+            return selected === current;
+        });
+
+        let xScale = d3.scaleBand()
+            .domain(speedLimits)
+            .range([0, effectiveWidth])
+            .paddingInner(0.14)
+            .paddingOuter(0.14);
+
+        let g = svg_unit_chart.select(".svg_group");
+
+        // Modify lanes
+        g.selectAll('.lane-image')
+            .data(speedLimits)
+            .join('.lane-image')
+            .attr("xlink:href", d => "data/road-" + selectedRoadOptions[d] + ".svg")
+
+        // FIXME: stop transition but don't just remove the cars, transition them
+        // Stop current transition
+        g.selectAll(".car").interrupt();
+
+        // Delete all cars
+        g.selectAll(".car").remove();
+
+        // Get car values
+        let nCars = carNumber;
+        let totalNum = d3.sum(usedData, v => v.value);
+        if (totalNum < nCars) nCars = Math.round(totalNum);
+        let carMargin = (xScale.bandwidth() - carSize)/8;
+
+        let getTranslateCar = (d, position) => {
+            let i = d[0], partialNumber = d[1];
+            let x = xScale.bandwidth()/2;
+
+            if (i % 2 === 0) x += carMargin;
+            else x += 0 - carSize - carMargin;
+
+            let y = Math.floor(i / 2) * (carSize+carPadding) + (carSize * partialNumber + carPadding);
+            if (position === "top") { y = effectiveHeight + carSize; }
+            else if (position === "bottom") { y = -carSize; }
+            return translation(x, y) + ", scale(1,-1)";
+        }
+
+        // Add cars
+        let speedIndex = 0;
+        for (let v of usedData) {
+            let totalNumber = +parseFloat(v.value / totalNum * nCars).toFixed(2);
+            let roundNumber = Math.floor(totalNumber);
+            let i = 0;
+
+            // Add full cars
+            while (i < roundNumber) {
+                g.select(".car-group-" + v.speed_limit.toString())
+                    .append("svg:image")
+                    .data([[i, 1, speedIndex]])
+                    .attr('class', 'car')
+                    .attr("xlink:href", "data/car_2.png")
+                    .attr('width', carSize)
+                    .attr('height', carSize)
+                    .attr('transform', d => getTranslateCar(d, ""))
+                i++;
+            }
+
+            // Add partial cars
+            let partialNumber = Math.round((totalNumber - roundNumber) * 100)/100;
+            if (partialNumber < 0.3) {
+                speedIndex++;
+                continue;
+            }
+            g.select(".car-group-" + v.speed_limit.toString())
+                .append("svg:image")
+                .data([[i, partialNumber, speedIndex]])
+                .attr('class', 'car')
+                .attr("xlink:href", "data/car_2.png")
+                .attr('width', carSize)
+                .attr('height', carSize)
+                .attr('transform', d => getTranslateCar(d, ""))
+                .style('clip-path', "inset(0 0 " + ((1-partialNumber)*100).toString() + "% 0)")
+
+            speedIndex++;
+        }
+
+        // Make interval for animation
+        new Promise(function () {
+            animateCars();
+        }).then(r => {});
+
+        // Update legend for car value
+        {
+            let carValue = totalNum / nCars;
+            let g_legend = svg_unit_chart.select(".legend_group");
+
+            g_legend.select('text')
+                .html(' - ' + d3.format('.2s')(carValue))
+        }
     }
 
-    if (!isDirty) {
-        return;
+    let count = 0;
+    let maxCount = 3;
+
+    function updateDirty() {
+        if (count !== maxCount) return;
+        Object.keys(isDirty).map(function(key, index) {
+            isDirty[key] = false;
+        });
     }
-
-    // getFilteredData();
-
-    // updatePyramidBarChart();
-    // update_choropleth_map();
 
     new Promise(function(resolve, reject) {
         getFilteredData();
         resolve();
     }).then(function(val) {
         new Promise(function(resolve, reject) {
-            updatePyramidBarChart();
-        }).then();
+            if (isDirty["1"])  update_choropleth_map();
+            resolve();
+        }).then( r => {
+            count++;
+            updateDirty();
+        });
 
         new Promise(function(resolve, reject) {
-            update_choropleth_map();
-        }).then();
+            if (isDirty["2"])  updatePyramidBarChart();
+            resolve();
+        }).then( r => {
+            count++;
+            updateDirty();
+        });
+
+        new Promise(function(resolve, reject) {
+            if (isDirty["7"])  updateUnitChart();
+            resolve();
+        }).then( r => {
+            count++;
+            updateDirty();
+        });
     });
 }
 
@@ -1336,6 +1478,7 @@ function getFilteredData() {
         currentAccidentData = accident_data;
         map_data = currentAccidentData;
         pyramid_data = currentAccidentData;
+        other_data = currentAccidentData;
         return;
     }
 
@@ -1359,6 +1502,15 @@ function getFilteredData() {
         let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
 
         return f2;
+    })
+
+    other_data = accident_data.filter( d => {
+        let f1 = d.year >= selectedMinYear && d.year <= selectedMaxYear;
+        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
+        let f3 = (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
+        let f4 = (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
+
+        return f1 && f2 && f3 && f4;
     })
 }
 
