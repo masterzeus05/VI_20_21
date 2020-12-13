@@ -829,6 +829,9 @@ function gen_unit_chart() {
     //     .paddingInner(0.2)
     //     .paddingOuter(0.2);
 
+    // FIXME: Add legend for mph, urban and rural?
+    // FIXME: Add axis to the right?
+
 }
 
 // Generate year slider
@@ -858,7 +861,7 @@ function gen_year_slider() {
         selectedMinYear = minYear;
         selectedMaxYear = maxYear;
 
-        isDirty = true;
+        setDirty(true);
 
         setTimeout(function(){ updateIdioms(); }, 0)
     });
@@ -1019,10 +1022,12 @@ function prepareButtons() {
         if (selectedMinYear !== 2010 || selectedMaxYear !== 2019) {
             selectedMinYear = 2010;
             selectedMaxYear = 2019;
-            isDirty = true;
+            setDirty(true);
         }
 
-        isDirty = isDirty || !(selectedCounties.size === 0 && selectedPyramidBars.size === 0);
+        if (!(selectedCounties.size === 0 && selectedPyramidBars.size === 0)) {
+            setDirty(true);
+        }
 
         // Unselect counties
         svg_choropleth_map.selectAll("path")
@@ -1034,6 +1039,9 @@ function prepareButtons() {
         selectedCounties.clear();
 
         // Unselect bars
+        if (selectedPyramidBars.size !== 0) {
+            setDirty(true);
+        }
         svg_pyramid_bar_chart.select('.left-bar')
             .selectAll('rect')
             .style("stroke", "transparent");
@@ -1041,6 +1049,23 @@ function prepareButtons() {
             .selectAll('rect')
             .style("stroke", "transparent");
         selectedPyramidBars.clear();
+
+        // Reset selected road options
+        if (Object.values(selectedRoadOptions).filter( v => v === "rural").length !== 0) {
+            isDirty["7"] = true;
+        }
+
+        Object.keys(selectedRoadOptions).map(function(key, index) {
+            selectedRoadOptions[key] = "urban";
+        });
+
+        // Unselect rural roads
+        svg_unit_chart.selectAll(".road-rural")
+            .style("outline", "1px solid black")
+
+        // Select urban roads
+        svg_unit_chart.selectAll(".road-urban")
+            .style("outline", "2px solid black")
 
         // Update all idioms to reset data
         currentAccidentData = [];
@@ -1317,7 +1342,7 @@ function updateIdioms() {
             effectiveWidth = width-margin.left - margin.right,
             effectiveHeight = height - margin.top - margin.bottom;
 
-        unit_data = d3.rollup(currentAccidentData, v => v.length,
+        unit_data = d3.rollup(other_data, v => v.length,
             d => d.area, d => d.speed_limit);
 
         let unrolledData = unroll(unit_data, ['area','speed_limit']);
@@ -1434,9 +1459,7 @@ function updateIdioms() {
 
     function updateDirty() {
         if (count !== maxCount) return;
-        Object.keys(isDirty).map(function(key, index) {
-            isDirty[key] = false;
-        });
+        setDirty(false);
     }
 
     new Promise(function(resolve, reject) {
@@ -1474,7 +1497,7 @@ function getFilteredData() {
 
     // Check if filters reset
     if (currentAccidentData.length === 0) {
-        isDirty = false;
+        // setDirty(false);
         currentAccidentData = accident_data;
         map_data = currentAccidentData;
         pyramid_data = currentAccidentData;
@@ -1574,4 +1597,10 @@ function barToString(event,datum){
     }
 
     return age_band + "|" + sex;
+}
+
+function setDirty(value) {
+    Object.keys(isDirty).map(function(key, index) {
+        isDirty[key] = value;
+    });
 }
