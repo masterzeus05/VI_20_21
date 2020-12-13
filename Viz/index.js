@@ -1342,17 +1342,17 @@ function updateIdioms() {
             effectiveWidth = width-margin.left - margin.right,
             effectiveHeight = height - margin.top - margin.bottom;
 
-        unit_data = d3.rollup(other_data, v => v.length,
+        let rolledData = d3.rollup(other_data, v => v.length,
             d => d.area, d => d.speed_limit);
 
-        let unrolledData = unroll(unit_data, ['area','speed_limit']);
+        let unrolledData = unroll(rolledData, ['area','speed_limit']);
         unrolledData = unrolledData.filter( d => {
             return d.area !== 3 && d.speed_limit >= 20;
         })
             .sort( (a,b) => {
                 if (a.speed_limit > b.speed_limit) return 1;
                 return -1;
-            });
+            });)
 
         let usedData = unrolledData.filter( (d,i) => {
             let selected = selectedRoadOptions[d.speed_limit];
