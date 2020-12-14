@@ -1352,7 +1352,7 @@ function updateIdioms() {
             .sort( (a,b) => {
                 if (a.speed_limit > b.speed_limit) return 1;
                 return -1;
-            });)
+            });
 
         let usedData = unrolledData.filter( (d,i) => {
             let selected = selectedRoadOptions[d.speed_limit];
@@ -1374,13 +1374,6 @@ function updateIdioms() {
             .join('.lane-image')
             .attr("xlink:href", d => "data/road-" + selectedRoadOptions[d] + ".svg")
 
-        // FIXME: stop transition but don't just remove the cars, transition them
-        // Stop current transition
-        g.selectAll(".car").interrupt();
-
-        // Delete all cars
-        g.selectAll(".car").remove();
-
         // Get car values
         let nCars = carNumber;
         let totalNum = d3.sum(usedData, v => v.value);
@@ -1400,6 +1393,18 @@ function updateIdioms() {
             return translation(x, y) + ", scale(1,-1)";
         }
 
+        // Stop current transition and mark them as to remove
+        g.selectAll(".car").interrupt()
+            .attr("class", "car-remove");
+
+        // Move cars to below and remove them
+        g.selectAll(".car-remove")
+            .transition()
+            .duration(500)
+            .attr('transform', d => getTranslateCar(d, "bottom"))
+            .transition()
+            .remove();
+
         // Add cars
         let speedIndex = 0;
         for (let v of usedData) {
@@ -1416,6 +1421,9 @@ function updateIdioms() {
                     .attr("xlink:href", "data/car_2.png")
                     .attr('width', carSize)
                     .attr('height', carSize)
+                    .attr('transform', d => getTranslateCar(d, "bottom"))
+                    .transition()
+                    .delay(1000)
                     .attr('transform', d => getTranslateCar(d, ""))
                 i++;
             }
@@ -1433,8 +1441,11 @@ function updateIdioms() {
                 .attr("xlink:href", "data/car_2.png")
                 .attr('width', carSize)
                 .attr('height', carSize)
-                .attr('transform', d => getTranslateCar(d, ""))
                 .style('clip-path', "inset(0 0 " + ((1-partialNumber)*100).toString() + "% 0)")
+                .attr('transform', d => getTranslateCar(d, "bottom"))
+                .transition()
+                .delay(1000)
+                .attr('transform', d => getTranslateCar(d, ""))
 
             speedIndex++;
         }
