@@ -79,7 +79,7 @@ body {
 .idioms {
     margin: 8px 20px;
     display: grid;
-    grid-template-columns: 350px 600px 500px 300px;
+    grid-template-columns: 350px 600px 500px 350px;
     grid-column-gap: 10px;
     grid-template-rows: 93%;
 }
@@ -113,4 +113,13 @@ div.tooltip {
     border: 0;
     border-radius: 8px;
     pointer-events: none;
+}
+
+.filter-green{
+    filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(86deg) brightness(118%) contrast(119%);
+}
+
+/* Clickable */
+.clickable {
+    cursor: pointer;
 }
