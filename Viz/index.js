@@ -126,7 +126,7 @@ function getData() {
         currentAccidentData = data;
         other_data = data;
 
-        d3.json("data/uk_test.json").then(function(topology) {
+        d3.json("data/uk_topo.json").then(function(topology) {
             uk_data = topology;
 
             processData();
@@ -290,7 +290,7 @@ function gen_choropleth_map() {
     // Display the map
     // Add counties
     g.selectAll("path")
-        .data(uk_data.features)
+        .data(topojson.feature(uk_data, uk_data.objects.lad).features)
         .enter().append("path")
         .attr("d", path)
         .attr("fill", function (d) {
