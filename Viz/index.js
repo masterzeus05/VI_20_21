@@ -71,7 +71,7 @@ let def_i2 = {
 }
 
 // Calendar Heatmap Chart Settings
-let def_i3 = {
+let def_i5 = {
     padding: 30,
     width: 500,
     height: 500,
@@ -79,7 +79,7 @@ let def_i3 = {
     legendHeight: 50
 }
 
-let def_i4 = {
+let def_i6 = {
     width: 500,
     height: 300,
     padding: 10,
@@ -336,30 +336,48 @@ function gen_choropleth_map() {
 
 //Generate radial chart
 function gen_radial_chart() {
-    let width = def_i4.width,
-        height = def_i4.height,
-        padding = def_i4.padding;
+    let width = def_i6.width,
+        height = def_i6.height,
+        padding = def_i6.padding;
 
     let dataset = d3.group(currentAccidentData, d => d.time.slice(0, 2));
     let keys = Array.from(dataset.keys());
 
     dataset = new Map([...dataset.entries()].sort());
+
     let max = d3.max(keys, d => dataset.get(d).length);
 
+    let datasetO = new Map(dataset);
     let datasetAM = new Map(dataset);
     let datasetPM = new Map(dataset);
 
     for (let k of datasetAM.keys()) {
-        if (!(k < 12))
+        if (!(k >= 6 && k <= 20))
             datasetAM.delete(k);
     }
     for (let k of datasetPM.keys()) {
-        if (!(k >= 12))
+        if (!(k > 17 || k < 9))
             datasetPM.delete(k);
     }
-    dataset = [datasetAM, datasetPM];
 
-    let radius = (height / 2 - padding * 4.5);
+    let datasetPM1st = new Map(datasetPM);
+    let datasetPM2nd = new Map(datasetPM);
+
+    for (let k of datasetPM1st.keys()) {
+        if (k < 18)
+            datasetPM1st.delete(k);
+    }
+    for (let k of datasetPM2nd.keys()) {
+        if (k > 8)
+            datasetPM2nd.delete(k);
+    }
+
+    datasetPM = new Map([...datasetPM1st].concat([...datasetPM2nd]));
+
+    dataset = [datasetAM, datasetPM];
+    console.log(dataset);
+
+    let radius = (height / 2 - padding * 4);
 
     let rScale = d3.scaleLinear()
         .range([0, radius])
@@ -381,26 +399,26 @@ function gen_radial_chart() {
         .attr('class', 'axisWrapper');
 
     axisGrid.selectAll('.levels')
-        .data(d3.range(1, (def_i4.levels + 1)).reverse())
+        .data(d3.range(1, (def_i6.levels + 1)).reverse())
         .enter()
         .append('circle')
         .attr('class', 'gridCircle')
-        .attr('r', d => radius/def_i4.levels * d)
+        .attr('r', d => radius/def_i6.levels * d)
         .style("fill", "#CDCDCD")
         .style("stroke", "#CDCDCD")
-        .style("fill-opacity", def_i4.opacity);
+        .style("fill-opacity", def_i6.opacity);
 
     axisGrid.selectAll(".axisLabel")
-        .data(d3.range(1,(def_i4.levels+1)).reverse())
+        .data(d3.range(1,(def_i6.levels+1)).reverse())
         .enter()
         .append("text")
         .attr("class", "axisLabel")
-        .attr("x", d => d * radius / def_i4.levels + def_i4.labelFactor)
+        .attr("x", d => d * radius / def_i6.levels + def_i6.labelFactor)
         .attr("y", 0)
         .attr("dy", "0.4em")
         .style("font-size", "10px")
         .attr("fill", "#737373")
-        .text(d =>Format(max * d/def_i4.levels));
+        .text(d =>Format(max * d/def_i6.levels));
 
     let axis = axisGrid.selectAll(".axis")
         .data(hours)
@@ -412,8 +430,8 @@ function gen_radial_chart() {
     axis.append("line")
         .attr("x1", 0)
         .attr("y1", 0)
-        .attr("x2", (d,i) => rScale(max * def_i4.labelFactor) * Math.cos(angleSlice*i - Math.PI/2))
-        .attr("y2", (d, i) => rScale(max * def_i4.labelFactor) * Math.sin(angleSlice*i - Math.PI/2))
+        .attr("x2", (d,i) => rScale(max * def_i6.labelFactor) * Math.cos(angleSlice*i - Math.PI/2))
+        .attr("y2", (d, i) => rScale(max * def_i6.labelFactor) * Math.sin(angleSlice*i - Math.PI/2))
         .attr("class", "line")
         .style("stroke", "white")
         .style("stroke-width", d => (d==3)?'0px':"2px");
@@ -424,8 +442,8 @@ function gen_radial_chart() {
         .style("font-size", "11px")
         .attr("text-anchor", "middle")
         .attr("dy", "0.35em")
-        .attr("x", (d, i) => rScale(max * def_i4.labelFactor) * Math.cos(angleSlice*i - Math.PI/2))
-        .attr("y", (d, i) => rScale(max * def_i4.labelFactor) * Math.sin(angleSlice*i - Math.PI/2))
+        .attr("x", (d, i) => rScale(max * def_i6.labelFactor) * Math.cos(angleSlice*i - Math.PI/2))
+        .attr("y", (d, i) => rScale(max * def_i6.labelFactor) * Math.sin(angleSlice*i - Math.PI/2))
         .text(d => (d==0 || d==3)?'':d);
 
     let angles = d3.scaleLinear()
@@ -435,7 +453,7 @@ function gen_radial_chart() {
     let radarLine = d3.lineRadial()
         .angle((d) => angles(+d[0]))
         .radius(d => rScale(d[1].length))
-        .curve(d3.curveLinearClosed);
+        .curve(d3.curveCardinalOpen);
 
     let blobWrapper = g.selectAll(".radarWrapper")
         .data(dataset)
@@ -444,36 +462,63 @@ function gen_radial_chart() {
         .attr("class", "radarWrapper");
 
     blobWrapper.append("path")
-        .attr("class", "radarArea")
+        .attr("class", "radarStroke")
         .attr("d", radarLine)
-        .style("fill", (d, i) => (i===0)? "#2e657d" : "#ac5454")
-        .style("fill-opacity", 0.35)
-        .on('mouseover', function() {
-            //Dim all blobs
-            d3.selectAll(".radarArea")
-                .transition()
-                .duration(200)
-                .style("fill-opacity", 0.1);
-            //Bring back the hovered over blob
-            d3.select(this)
-                .transition()
-                .duration(200)
-                .style("fill-opacity", 0.7);
-        })
-        .on('mouseout', function(){
-            //Bring back all blobs
-            d3.selectAll(".radarArea")
-                .transition().duration(200)
-                .style("fill-opacity", 0.35);
-        });
+        .style("stroke-width", 2 + "px")
+        .style("stroke", (d, i) => (i===0)? "#af7070" : "#44849a")
+        .style("fill", "none");
+
+    blobWrapper.selectAll(".radarCircle")
+        .data(datasetO)
+        .enter()
+        .append("circle")
+        .attr("class", "radarCircle")
+        .attr("r", 3)
+        .attr("cx", (d) => rScale(d[1].length) * Math.cos(angles(+d[0]%12) - Math.PI/2))
+        .attr("cy", (d) => rScale(d[1].length) * Math.sin(angles(+d[0]%12) - Math.PI/2))
+        .style("fill", (d) => (+d[0] >= 7 && +d[0] <= 19)? "#ac5454" : "#2e657d")
+        .style("fill-opacity", 0.8)
+        .append('title')
+        .text(d => d[1].length);
+
+    let legendG = svg_radar_chart.append('g')
+        .attr('class', 'legend');
+
+    legendG.append('circle')
+        .attr('cx', 3 * padding)
+        .attr('cy', padding)
+        .attr('transform', translation(padding, height - 8*padding))
+        .attr('r', 7)
+        .style('fill', "#ac5454");
+
+    legendG.append('text')
+        .attr('x', 6 * padding)
+        .attr('y', height - 6.5*padding)
+        .style('fill', '#575757')
+        .style("font-size", "16px")
+        .text('AM');
+
+    legendG.append('circle')
+        .attr('cx', 3 * padding)
+        .attr('cy', padding)
+        .attr('transform', translation(padding, height - 5*padding))
+        .attr('r', 7)
+        .style('fill', "#2e657d");
+
+    legendG.append('text')
+        .attr('x', 6 * padding)
+        .attr('y', height - 3.5*padding)
+        .style('fill', '#575757')
+        .style("font-size", "16px")
+        .text('PM');
 }
 
 
 //Generate calendar heatmap
 function  gen_calendar_heatmap() {
-    let width = def_i3.width,
-        height = def_i3.height,
-        padding = def_i3.padding;
+    let width = def_i5.width,
+        height = def_i5.height,
+        padding = def_i5.padding;
     let squarePadding = 2;
 
     let dataset = d3.group(currentAccidentData, d=>d.date.slice(5));
@@ -552,13 +597,13 @@ function  gen_calendar_heatmap() {
     let legend_g = svg_calendar_heatmap
         .append('g')
         .attr('id', 'legend-svg-calendar')
-        .attr('width', def_i3.legendWidth)
-        .attr('height', def_i3.legendHeight)
+        .attr('width', def_i5.legendWidth)
+        .attr('height', def_i5.legendHeight)
         .attr('transform', translation(-padding, height - padding));
 
     let countScale = d3.scaleLinear()
         .domain([min, max])
-        .range([0, def_i3.legendWidth])
+        .range([0, def_i5.legendWidth])
 
     //Calculate the variables for the temp gradient
     let numStops = 4;
@@ -580,7 +625,7 @@ function  gen_calendar_heatmap() {
         .enter()
         .append("stop")
         .attr("offset", function(d,i) {
-            return countScale( countPoint[i] )/ def_i3.legendWidth;
+            return countScale( countPoint[i] )/ def_i5.legendWidth;
         })
         .attr("stop-color", function(d,i) {
             return colors( countPoint[i] );
@@ -588,9 +633,9 @@ function  gen_calendar_heatmap() {
 
     legend_g.append("rect")
         .attr("id", "legendRect")
-        .attr("x", width/2 - def_i3.legendWidth/2 + padding)
+        .attr("x", width/2 - def_i5.legendWidth/2 + padding)
         .attr("y", 0)
-        .attr("width", def_i3.legendWidth)
+        .attr("width", def_i5.legendWidth)
         .attr("height", 10)
         .style("fill", "url(#legend-map-calendar)");
 
@@ -603,7 +648,7 @@ function  gen_calendar_heatmap() {
     //Set up legend axis
     legend_g.append("g")
         .attr("id", "legend-axis")
-        .attr("transform", translation(width/2 - def_i3.legendWidth/2 + padding, 0))
+        .attr("transform", translation(width/2 - def_i5.legendWidth/2 + padding, 0))
         .call(legendAxis);
 }
 
@@ -1257,8 +1302,8 @@ function updateIdioms() {
         let squareWidth = 33;
         let squareHeight = 15;
 
-        let width = def_i3.width,
-            height = def_i3.height;
+        let width = def_i5.width,
+            height = def_i5.height;
 
         let dataset = d3.group(calendar_data, d => d.date);
         let keys = Array.from(dataset.keys());
@@ -1404,7 +1449,7 @@ function updateIdioms() {
 
     updatePyramidBarChart();
     update_choropleth_map();
-    update_calendar_heatmap();
+    //update_calendar_heatmap();
 }
 
 // Update data according to filters
