@@ -389,12 +389,12 @@ function gen_pyramid_bar_chart() {
     // X axis
     let xAxisLeft = d3.axisBottom()
         .scale(xScale.copy().range([pointA, 0]))
-        .ticks(5)
+        .ticks(4)
         .tickFormat(d3.format(".2s"));
 
     let xAxisRight = d3.axisBottom()
         .scale(xScale)
-        .ticks(5)
+        .ticks(4)
         .tickFormat(d3.format(".2s"));
 
     // Y scale
