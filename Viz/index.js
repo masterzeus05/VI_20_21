@@ -1400,6 +1400,7 @@ function updateIdioms() {
         // Move cars to below and remove them
         g.selectAll(".car-remove")
             .transition()
+            .delay(1000)
             .duration(500)
             .attr('transform', d => getTranslateCar(d, "bottom"))
             .transition()
@@ -1423,7 +1424,7 @@ function updateIdioms() {
                     .attr('height', carSize)
                     .attr('transform', d => getTranslateCar(d, "bottom"))
                     .transition()
-                    .delay(1000)
+                    .delay(2000)
                     .attr('transform', d => getTranslateCar(d, ""))
                 i++;
             }
@@ -1444,7 +1445,7 @@ function updateIdioms() {
                 .style('clip-path', "inset(0 0 " + ((1-partialNumber)*100).toString() + "% 0)")
                 .attr('transform', d => getTranslateCar(d, "bottom"))
                 .transition()
-                .delay(1000)
+                .delay(2000)
                 .attr('transform', d => getTranslateCar(d, ""))
 
             speedIndex++;
