@@ -77,8 +77,8 @@ let def_i4 = {
     margin: {
         top: 20,
         right: 20,
-        bottom: 32,
-        left: 44,
+        bottom: 32 + 15,
+        left: 44 +15,
         middle: 24
     },
     width: 550,
@@ -579,7 +579,7 @@ function gen_lines_chart() {
     let min_Vehicle_Year = d3.min(filteredAccidentData, d => d.vehicle_year);
     let max_Vehicle_Year = d3.max(filteredAccidentData, d => d.vehicle_year);
 
-    let numberOfAccidentsPerYear = d3.rollup(filteredAccidentData, v=> v.length, d=>d.vehicle_year);
+    let numberOfAccidentsPerYear = d3.rollup(filteredAccidentData, v=> v.length, d=>d.vehicle_year, d=>d.make);
 
     let yearCasualtiesByMake = new Map()
 
@@ -600,7 +600,7 @@ function gen_lines_chart() {
                 min_year = Math.min(min_year,i);
                 dict.Year = i;
                 dict.n = d3.sum(groupedByMakeAndYear.get(key).get(i), d=>d.number_of_casualties)/
-                            numberOfAccidentsPerYear.get(i);
+                            numberOfAccidentsPerYear.get(i).get(key);
                 maxY = ( dict.n > maxY ) ? dict.n : maxY;
             }
             dicts.push(dict);
@@ -674,6 +674,20 @@ function gen_lines_chart() {
     .enter().append("g")
     .attr("class", "make");
 
+    svg.append("text")
+    .attr("text-anchor", "end")
+    .attr("y", -50)
+    .attr("x", -50)
+    .attr("dy", ".75em")
+    .attr("transform", "rotate(-90)")
+    .text("Number of casualties per accident");
+
+    svg.append("text")
+    .attr("text-anchor", "end")
+    .attr("x", width/2 - 20)
+    .attr("y", height - 30)
+    .text("Year");
+
     make.append("path")
         .attr("class", "line")
         .attr("d", function(d) {
@@ -687,25 +701,29 @@ function gen_lines_chart() {
         .on('mouseout', mouseout);
 
     svg.append("g")
-      .attr("transform", translation(0,effectiveHeight))
-      .call(d3.axisBottom(x).tickValues(yearsTicks).tickFormat(d3.format("d")) );
+       .attr('id', 'xAxis')
+       .attr("transform", translation(0,effectiveHeight))
+       .call(d3.axisBottom(x).tickValues(yearsTicks).tickFormat(d3.format("d")) );
 
     svg.append("g")
+       .attr('id', 'yAxis')
        .call(d3.axisLeft(y));
 
     var focus = svg
     .append('g')
     .append('circle')
+    .attr('id', 'focus')
         .style("fill", "none")
         .attr("stroke", "black")
         .attr('r', 2.5)
         .style("opacity", 0)
 
     var new_g = svg.append('g')
+                    .attr('id', 'newg')
 
     var text_back = new_g
     .append('rect')
-    .attr("class","back_text")
+    .attr("id","back_text")
     .attr('width', 80)
     .attr('height', 80)
     .attr('fill', "#fffff1" )
@@ -727,6 +745,7 @@ function gen_lines_chart() {
         .data(worst_makes)
         .enter()
         .append("rect")
+        .attr('id', 'dot')
         .attr("x", legend_x)
         .attr("y", function(d,i){ return 5 + i*(size+5)}) // 100 is where the first dot appears. 25 is the distance between dots
         .attr("width", size)
@@ -734,10 +753,11 @@ function gen_lines_chart() {
         .style("fill", function(d){ return color(d)})
 
     // Add one dot in the legend for each name.
-    svg.selectAll("mylabels")
+    svg.selectAll(".mylabels")
         .data(worst_makes)
         .enter()
         .append("text")
+        .attr('id', 'label')
         .attr("x", legend_x + size*1.2)
         .attr("y", function(d,i){ return 5 + i*(size+5) + (size/2)}) // 100 is where the first dot appears. 25 is the distance between dots
         .style("fill", function(d){ return color(d)})
@@ -1727,8 +1747,230 @@ function updateIdioms() {
         }
     }
 
+    function updateLineChart(){
+        // Set margins and width and height
+        let margin = def_i4.margin;
+        let width = def_i4.width,
+            height = def_i4.height,
+            effectiveWidth = width-margin.left - margin.right,
+            effectiveHeight = height - margin.bottom - margin.top;
+
+        // Get custom dataset
+        let filteredAccidentData = other_data.filter(d => {
+            return d.vehicle_year !== "" && d.vehicle_year!==-1
+                && d.make !== "" && d.make !== "Not known"
+                && d.number_of_casualties!="" && d.number_of_casualties>=0;
+        })
+
+        worst_makes = (Array.from(
+            d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
+            .sort(function(a, b){return a[1]-b[1]})
+            .reverse()
+            .slice(0,5)
+            ).map(x => x[0]);
+
+
+        let groupedByMakeAndYear = d3.group(filteredAccidentData, d => d.make, d => d.vehicle_year);
+        let min_Vehicle_Year = d3.min(filteredAccidentData, d => d.vehicle_year);
+        let max_Vehicle_Year = d3.max(filteredAccidentData, d => d.vehicle_year);
+
+        let numberOfAccidentsPerYear = d3.rollup(filteredAccidentData, v=> v.length, d=>d.vehicle_year, d=>d.make);
+
+        let yearCasualtiesByMake = new Map()
+
+        var maxY = 0;
+        var min_year = 2020;
+        var max_year = 0;
+        for (var key of worst_makes){ // for each make
+            let dict = {};
+            let dicts = [];
+            for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
+
+                if(groupedByMakeAndYear.get(key).get(i) == null){
+                    dict.Year = i;
+                    dict.n = 0;
+                }
+                else{
+                    max_year = Math.max(max_year,i)
+                    min_year = Math.min(min_year,i);
+                    dict.Year = i;
+                    dict.n = d3.sum(groupedByMakeAndYear.get(key).get(i), d=>d.number_of_casualties)/
+                                numberOfAccidentsPerYear.get(i).get(key);
+                    maxY = ( dict.n > maxY ) ? dict.n : maxY;
+                }
+                dicts.push(dict);
+                dict = {};
+            }
+            yearCasualtiesByMake.set(key, dicts);
+        }
+
+        min_Vehicle_Year = min_year - 1;
+        max_Vehicle_Year = max_year;
+
+        for (var key of yearCasualtiesByMake.keys()){
+            let updated_values = yearCasualtiesByMake.get(key).filter(d => d.Year >= min_Vehicle_Year && d.Year <= max_Vehicle_Year);
+            yearCasualtiesByMake.set(key,updated_values);
+        }
+
+        // set the ranges
+
+        var yearsTicks=[];
+        let j = 0;
+        let distance = Math.round((max_Vehicle_Year - min_Vehicle_Year + 1)/10)
+        for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
+            if (j%distance==0)
+                yearsTicks.push(i);
+            j++;
+        }
+        yearsTicks[0] = min_Vehicle_Year 
+        yearsTicks[yearsTicks.length-1] = max_Vehicle_Year 
+
+        var yearsDomain=[];
+        for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
+            yearsDomain.push(i);  
+        }
+
+        var x = d3.scaleLinear()
+                .domain([min_Vehicle_Year,max_Vehicle_Year])
+                .range([0, effectiveWidth]);
+        console.log(x.domain())
+
+        var y = d3.scaleLinear()
+                .domain([0, maxY])
+                .range([effectiveHeight, 0]);
+        console.log(y.domain())
+
+        var svg = d3.select("#line_chart")
+                    .select("svg")
+                    .select("g")
+
+        var line = d3.line()
+                    .x(function(d) { return x(d.year); })
+                    .y(function(d) { return y(d.casualties); });
+
+        var color = d3.scaleOrdinal(d3.schemeCategory10)
+                  .domain(worst_makes);
+
+        var makes = color.domain().map(function(name) {
+            return {
+            name: name,
+            values: yearCasualtiesByMake.get(name).map(function(d) {
+                return {
+                year: d.Year,
+                casualties: d.n
+                };
+            })
+            };
+        });
+        console.log(makes)
+        console.log("update ", makes)
+    svg.selectAll(".make")
+        .data(makes).select("path")
+        .on('mouseover', mouseover)
+        .on('mousemove', mousemove)
+        .on('mouseout', mouseout)
+        .transition()
+        .delay(1000)
+        .duration(2000)
+        .attr("d", function(d) {
+            return line(d.values);
+        })
+        .style("stroke", function(d) {
+            return color(d.name);
+        })
+        
+
+
+    svg.select("#xAxis")
+        .transition()
+        .delay(1000)
+        .duration(2000)
+        .call(d3.axisBottom(x).tickValues(yearsTicks).tickFormat(d3.format("d")) );
+
+    svg.select("#yAxis")
+       .call(d3.axisLeft(y));
+
+    
+       var focus = svg.select("#focus")
+   
+       var new_g = svg.select('#newg')
+   
+       var text_back = new_g
+       .select('#back_text')
+   
+   
+       var focusText = new_g.select(".focus_text")
+
+       svg.selectAll("#dot")
+           .data(worst_makes)
+           .style("fill", function(d){ return color(d)})
+   
+       // Add one dot in the legend for each name.
+
+
+       svg.selectAll("#label")
+           .data(worst_makes)
+           .style("fill", function(d){ return color(d)})
+           .text(function(d){ return d})
+           .attr("text-anchor", "left")
+           .style("alignment-baseline", "middle")
+   
+       function mouseover() {
+           focus.style("opacity", 1)
+           focusText.style("opacity",1)
+       }
+   
+       function mousemove(event,datum) {
+           // recover coordinate we need
+           const pointer = d3.pointer(event, this);
+           var x0 = x.invert(pointer[0]);
+           var selected_year = yearsDomain[d3.bisectCenter(yearsDomain, x0)];
+           var yvalue = 0;
+           for (var k in datum.values){
+               if (datum.values[k].year === selected_year) {
+                   yvalue = datum.values[k]
+                   break;
+               }
+           }
+           focus.attr("cx", x(selected_year))
+                .attr("cy", y(yvalue.casualties))
+   
+           var n = yvalue.casualties.toFixed(2);
+   
+           focusText.html("x:" + selected_year + "  -  " + "y:" + n + " - " + datum.name)
+   
+           let margin;
+           if (x(selected_year) > 160){
+               margin = - d3.selectAll('.focus_text').node().getBoundingClientRect().width - 15
+           }
+           else{
+               margin = 15
+           }
+   
+           focusText.attr("x", x(selected_year)+margin)
+                    .attr("y", y(yvalue.casualties))
+   
+           text_back
+           .attr('width', d3.selectAll('.focus_text').node().getBoundingClientRect().width+2)
+           .attr('height', d3.selectAll('.focus_text').node().getBoundingClientRect().height+2)
+           .attr("x", parseInt(d3.selectAll('.focus_text').node().getAttribute("x"))-1)
+           .attr("y", parseInt(d3.selectAll('.focus_text').node().getAttribute("y")) -7)
+           .style("opacity", 1)
+   
+   
+       }
+   
+       function mouseout() {
+           focus.style("opacity", 0)
+           focusText.style("opacity", 0)
+           text_back.style("opacity", 0)
+       }
+
+    
+    }
+
     let count = 0;
-    let maxCount = 3;
+    let maxCount = 4;
 
     function updateDirty() {
         if (count !== maxCount) return;
@@ -1749,6 +1991,14 @@ function updateIdioms() {
 
         new Promise(function(resolve, reject) {
             if (isDirty["2"])  updatePyramidBarChart();
+            resolve();
+        }).then( r => {
+            count++;
+            updateDirty();
+        });
+
+        new Promise(function(resolve, reject) {
+            if (isDirty["4"])  updateLineChart();
             resolve();
         }).then( r => {
             count++;
