@@ -72,6 +72,20 @@ let def_i2 = {
     height: 400
 }
 
+
+// Alluvial Chart Settings
+let def_i3 = {
+    margin: {
+        top: 32,
+        right: 20,
+        bottom: 32,
+        left: 20,
+        middle: 24
+    },
+    width: 600,
+    height: 400
+}
+
 // Lines Chart Settings
 let def_i4 = {
     margin: {
@@ -111,10 +125,10 @@ function getData() {
             county: d.county,
             // Index: d.Index,
             // Day_of_Week: +d.Day_of_Week,
-            // Light_Conditions: +d.Light_Conditions,
+            light: +d.Light_Conditions,
             number_of_casualties: +d.Number_of_Casualties,
             // Number_of_Vehicles: +d.Number_of_Vehicles,
-            // Road_Surface_Conditions: +d.Road_Surface_Conditions,
+            road_surface: +d.Road_Surface_Conditions,
             // Road_Type: +d.Road_Type,
             sex: +d.Sex_of_Driver,
             speed_limit: +d.Speed_limit,
@@ -123,7 +137,7 @@ function getData() {
             area: +d.Urban_or_Rural_Area,
             // Vehicle_Type: +d.Vehicle_Type,
             vehicle_year: +d.Vehicle_Year,
-            // Weather_Conditions: +d.Weather_Conditions,
+            weather: +d.Weather_Conditions,
             year: +d.Year,
             make: d.make
         }
@@ -156,6 +170,7 @@ function processData() {
     gen_pyramid_bar_chart();
     gen_unit_chart();
     gen_lines_chart();
+    gen_alluvial_chart();
 
     // Year slider
     gen_year_slider();
@@ -549,6 +564,115 @@ function gen_pyramid_bar_chart() {
         .attr('fill', '#F88B9D')
         .append("title")
         .text(d => d[1].get(2));
+}
+
+// Generate alluvial chart
+function gen_alluvial_chart() {
+    let margin = def_i3.margin;
+    let width = def_i3.width,
+        height = def_i3.height,
+        effectiveWidth = width - margin.left - margin.right,
+        effectiveHeight = height - margin.bottom - margin.top;
+
+    svg_alluvial_chart = d3.select("#alluvial_chart")
+    .append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+    let g = svg_alluvial_chart.append("g")
+        .attr("transform", translation(margin.left, margin.top))
+        .attr("class", "svg_group");
+
+    let filteredAccidentData = accident_data.filter(d => {
+        return d.road_surface !== "" && !isNaN(d.road_surface) && d.road_surface!=-1
+            && d.light !== "" && !isNaN(d.light) && d.light!=-1
+            && d.weather!="" && !isNaN(d.weather) && d.weather!=-1
+            && d.weather!=8 && d.weather!=9;
+    })
+
+    filteredAccidentData = filteredAccidentData.map(function(d){
+        return {
+            road_surface: translations_for_alluvial.Road_Surface_Conditions[d.road_surface],
+            light: translations_for_alluvial.Light_Conditions[d.light],
+            weather: translations_for_alluvial.Weather_Conditions[d.weather],
+            wind: translations_for_alluvial.Weather_Conditions_wind[d.weather]
+        }
+    } )
+
+    filteredAccidentData = d3.rollup(filteredAccidentData, v => v.length, d => d.road_surface, d => d.light, d => d.weather, d => d.wind)
+    filteredAccidentData = unroll(filteredAccidentData, ['road_surface','light','weather','wind']);
+    filteredAccidentData = d3.csvParse(d3.csvFormat(filteredAccidentData), function(d){
+        return {
+            road_surface: d.road_surface,
+            light: d.light,
+            weather: d.weather,
+            wind: d.wind,
+            value: +d.value
+        };
+    });
+
+    console.log(filteredAccidentData)
+
+
+    keys = filteredAccidentData.columns.slice(0, -1)
+
+    graph = dataToGraph(filteredAccidentData,keys);
+    console.log(graph)
+    sankey = d3.sankey()
+    .nodeSort(null)
+    .linkSort(null)
+    .nodeWidth(10)
+    .nodePadding(2)
+    .extent([[0, 5], [effectiveWidth, effectiveHeight]])
+
+    color = d3.scaleOrdinal(["Dry"], ["#da4f81"]).unknown("#ccc")
+    color = d3.scaleOrdinal(["#abc4d6", "#d6abb3", "#d6c5ab"])
+
+    const {nodes, links} = sankey({
+        nodes: graph.nodes.map(d => Object.assign({}, d)),
+        links: graph.links.map(d => Object.assign({}, d))});
+
+
+        g.append("g")
+        .selectAll("rect")
+        .data(nodes)
+        .join("rect")
+        .attr("x", d => d.x0)
+        .attr("y", d => d.y0)
+        .attr("height", d => d.y1 - d.y0)
+        .attr("width", d => d.x1 - d.x0)
+        .append("title")
+        .text(d => `${d.name}\n${d.value.toLocaleString()}`);
+
+        g.append("g")
+        .attr("fill", "none")
+        .selectAll("g")
+        .data(links)
+        .join("path")
+        .attr("d", d3.sankeyLinkHorizontal())
+        .attr("stroke", d => color(d.names[0]))
+        .attr("stroke-width", d => d.width)
+        .style("mix-blend-mode", "multiply")
+        .append("title")
+        .text(d => `${d.names.join(" → ")}\n${d.value.toLocaleString()}`);
+
+        g.append("g")
+        .style("font", "15px sans-serif")
+        .style("font-weight", "bold")
+        .selectAll("text")
+        .data(nodes)
+        .join("text")
+        .attr("x", d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
+        .attr("y", d => (d.y1 + d.y0) / 2)
+        .attr("dy", "0.35em")
+        .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
+        .text(d => d.name)
+        // .append("tspan")
+        // .attr("fill-opacity", 0.7)
+        // .text(d => ` ${d.value.toLocaleString()}`);
+
+
+
 }
 
 // Generate lines chart
@@ -2126,4 +2250,49 @@ function setDirty(value) {
     Object.keys(isDirty).map(function(key, index) {
         isDirty[key] = value;
     });
+}
+
+function dataToGraph(data,keys) {
+    let index = -1;
+    const nodes = [];
+    const nodeByKey = new Map;
+    const indexByKey = new Map;
+    const links = [];
+
+    for (const k of keys) {
+      for (const d of data) {
+        const key = JSON.stringify([k, d[k]]);
+        if (nodeByKey.has(key)) continue;
+        const node = {name: d[k]};
+        nodes.push(node);
+        nodeByKey.set(key, node);
+        indexByKey.set(key, ++index);
+      }
+    }
+
+    for (let i = 1; i < keys.length; ++i) {
+      const a = keys[i - 1];
+      const b = keys[i];
+      const prefix = keys.slice(0, i + 1);
+      const linkByKey = new Map;
+      for (const d of data) {
+        const names = prefix.map(k => d[k]);
+        const key = JSON.stringify(names);
+        const value = d.value || 1;
+        let link = linkByKey.get(key);
+        if (link) { link.value += value; continue; }
+        link = {
+          source: indexByKey.get(JSON.stringify([a, d[a]])),
+          target: indexByKey.get(JSON.stringify([b, d[b]])),
+          names,
+          value
+        };
+        links.push(link);
+        linkByKey.set(key, link);
+      }
+
+
+    }
+
+    return {nodes,links};
 }
