@@ -95,3 +95,44 @@ let translations = {
         98: "Goods vehicle - unknown weight"
     }
 };
+
+let translations_for_alluvial = {
+    Light_Conditions: {
+        1: "Daylight",
+        4: "Darkness",
+        5: "Darkness",
+        6: "Darkness",
+        7: "Darkness"
+    },
+    Road_Surface_Conditions: {
+        1: "Dry",
+        2: "Wet or damp",
+        3: "Snow",
+        4: "Snow",
+        5: "Other",
+        6: "Other",
+        7: "Other"
+    },
+    Weather_Conditions: {
+        1: "Fine",
+        2: "Raining",
+        3: "Snowing",
+        4: "Fine",
+        5: "Raining",
+        6: "Snowing",
+        7: "Fog or mist",
+        8: "Other",
+        9: "Unknown"
+    },
+    Weather_Conditions_wind: {
+        1: "No high winds",
+        2: "No high winds",
+        3: "No high winds",
+        4: "High winds",
+        5: "High winds",
+        6: "High winds",
+        7: "No high winds",
+        8: "Other",
+        9: "Unknown"
+    }
+};
