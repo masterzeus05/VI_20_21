@@ -5,6 +5,7 @@ let map_data = null;
 let pyramid_data = null;
 let test_data = null;
 let calendar_data = null;
+let radar_data = null;
 let unit_data = null;
 let other_data = null;
 
@@ -50,6 +51,10 @@ const daysOfWeek = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
 
 const ticksDays = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
     18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+
+const ticksWeekN = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+    18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+    41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54]
 
 const hours = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
@@ -197,7 +202,7 @@ function processData() {
     // Events
     prepareCountyEvent();
     preparePyramidEvent();
-    prepareHeatMapEvent();
+    //prepareHeatMapEvent();
     prepareUnitEvent();
     prepareButtons();
 }
@@ -327,7 +332,7 @@ function gen_choropleth_map() {
     //Define legend axis
     let legendAxis = d3.axisRight()
         .ticks(4)
-        .tickFormat(d3.format(".0s"))
+        .tickFormat(d3.format(".2s"))
         .scale(countScale);
 
     //Set up legend axis
@@ -422,7 +427,6 @@ function gen_radial_chart() {
     datasetPM = new Map([...datasetPM1st].concat([...datasetPM2nd]));
 
     dataset = [datasetAM, datasetPM];
-    console.log(dataset);
 
     let radius = (height / 2 - padding * 4);
 
@@ -455,11 +459,11 @@ function gen_radial_chart() {
         .style("stroke", "#CDCDCD")
         .style("fill-opacity", def_i6.opacity);
 
-    axisGrid.selectAll(".axisLabel")
+    axisGrid.selectAll("#axisLabel")
         .data(d3.range(1,(def_i6.levels+1)).reverse())
         .enter()
         .append("text")
-        .attr("class", "axisLabel")
+        .attr("id", "axisLabel")
         .attr("x", d => d * radius / def_i6.levels + def_i6.labelFactor)
         .attr("y", 0)
         .attr("dy", "0.4em")
@@ -509,17 +513,17 @@ function gen_radial_chart() {
         .attr("class", "radarWrapper");
 
     blobWrapper.append("path")
-        .attr("class", "radarStroke")
+        .attr("id", "radarStroke")
         .attr("d", radarLine)
         .style("stroke-width", 2 + "px")
         .style("stroke", (d, i) => (i===0)? "#af7070" : "#44849a")
         .style("fill", "none");
 
-    blobWrapper.selectAll(".radarCircle")
+    blobWrapper.selectAll("#radarCircle")
         .data(datasetO)
         .enter()
         .append("circle")
-        .attr("class", "radarCircle")
+        .attr("id", "radarCircle")
         .attr("r", 3)
         .attr("cx", (d) => rScale(d[1].length) * Math.cos(angles(+d[0]%12) - Math.PI/2))
         .attr("cy", (d) => rScale(d[1].length) * Math.sin(angles(+d[0]%12) - Math.PI/2))
@@ -566,17 +570,17 @@ function  gen_calendar_heatmap() {
     let width = def_i5.width,
         height = def_i5.height,
         padding = def_i5.padding;
-    let squarePadding = 2;
 
-    let dataset = d3.group(currentAccidentData, d=>d.date.slice(5));
-    let keys = Array.from(dataset.keys());
+    let dataset = d3.rollup(currentAccidentData, v => v.length, d=> d.year, d=>d.date.slice(5));
+    dataset = unroll(dataset, ['year', 'date', 'value']);
+    dataset = d3.rollup(dataset, v=>d3.mean(v, v=> v.value), d=> d.date);
 
-    let min = d3.min(keys, d => dataset.get(d).length),
-        max = d3.max(keys, d => dataset.get(d).length);
+    let min = d3.min(dataset, d => d[1]),
+        max = d3.max(dataset, d => d[1]);
 
     let colors = d3.scaleLinear()
         .domain([min, max])
-        .range(["#5e8cff","#ff4848"]);
+        .range(["#8ecefd","#f88b9d"]);
 
     let monthScale = d3.scaleBand()
         .domain(ticksMonth)
@@ -585,9 +589,7 @@ function  gen_calendar_heatmap() {
     let xAxis = d3.axisTop()
         .scale(monthScale)
         .tickValues(ticksMonth)
-        .tickFormat(function(d,i) {
-            return months[i];
-        });
+        .tickFormat((d, i) => months[i]);
 
     let dayScale = d3.scaleBand()
         .domain(ticksDays)
@@ -625,21 +627,16 @@ function  gen_calendar_heatmap() {
         .attr("class", "rects");
 
     rects.selectAll("rect")
-        .data(keys)
+        .data(dataset)
         .join("rect")
         .attr("class", ".rects")
         .attr("width", monthScale.bandwidth())
         .attr("height", dayScale.bandwidth())
-        .attr("x", d => monthScale(getMonth(d)))
-        .attr("y", d => dayScale(getDay(d)))
-        .attr("fill", d => colors(dataset.get(d).length))
+        .attr("x", d => monthScale(getMonth(d[0])))
+        .attr("y", d => dayScale(getDay(d[0])))
+        .attr("fill", d => colors(d[1]))
         .append("title")
-        .text(d => d + ", " + dataset.get(d).length);
-
-    rects.call( d3.brush()
-            .extent( [ [padding, padding], [width - padding, height - padding * 2] ] )
-        );
-
+        .text(d => d);
 
     let legend_g = svg_calendar_heatmap
         .append('g')
@@ -679,7 +676,7 @@ function  gen_calendar_heatmap() {
         });
 
     legend_g.append("rect")
-        .attr("id", "legendRect")
+        .attr("id", "legendRectHeatmap")
         .attr("x", width/2 - def_i5.legendWidth/2 + padding)
         .attr("y", 0)
         .attr("width", def_i5.legendWidth)
@@ -694,7 +691,7 @@ function  gen_calendar_heatmap() {
 
     //Set up legend axis
     legend_g.append("g")
-        .attr("id", "legend-axis")
+        .attr("id", "legend-axis-heatmap")
         .attr("transform", translation(width/2 - def_i5.legendWidth/2 + padding, 0))
         .call(legendAxis);
 }
@@ -1693,7 +1690,7 @@ function prepareButtons() {
         setTimeout(function(){ updateIdioms(); }, 0)
     })
 }
-
+let global;
 // Update all idioms
 function updateIdioms() {
 
@@ -1949,146 +1946,277 @@ function updateIdioms() {
     }
 
     function update_calendar_heatmap() {
-        let squareWidth = 33;
-        let squareHeight = 15;
-
-        let width = def_i5.width,
-            height = def_i5.height;
-
-        let dataset = d3.group(calendar_data, d => d.date);
-        let keys = Array.from(dataset.keys());
-
-
-        if (isOneYear(keys)) {
-            squareWidth *= 12/7;
-            squareHeight *= 31/52;
-
-            let min = d3.min(keys, d => dataset.get(d).length),
-                max = d3.max(keys, d => dataset.get(d).length);
-
-            let dow = d3.scaleLinear()
-                .domain([1, 7])
-                .range([45, width - 30]);
-
-            let weekN = d3.scaleLinear()
-                .domain([1, 52])
-                .range([21 + squareHeight/2, height - 40]);
-
-            let xAxis = d3.axisTop()
-                .scale(dow)
-                .tickValues(ticksDays)
-                .tickFormat((d, i) => daysOfWeek[i]);
-
-            let yAxis = d3.axisLeft()
-                .scale(weekN);
-
-            let colors = d3.scaleLinear()
+        function updateHeatmapLegend(min, max, colors) {
+            let countScale = d3.scaleLinear()
                 .domain([min, max])
-                .range(["#ffffff", "#ff0000"]);
+                .range([0, def_i5.legendWidth])
 
-            svg_calendar_heatmap.select(".rects")
-                .selectAll("rect")
-                .data(keys)
-                .join("rect")
-                .attr("class", ".rects")
-                .attr("width", squareWidth)
-                .attr("height", squareHeight)
-                .transition()
-                .delay(300)
-                .duration(1000)
-                .attr("x", d => dow(dataset.get(d)[0].dow)-squareWidth/2)
-                .attr("y", d => weekN(getWeekNumber(d))-squareHeight/2)
-                .attr("fill", d => colors(dataset.get(d).length))
-                .select("title")
-                .text(d => d + ", " + dataset.get(d).length);
+            //Calculate the variables for the temp gradient
+            let numStops = 4;
 
-            svg_calendar_heatmap.select("#xAxis")
-                .call(xAxis)
-                .attr("transform", translation(0, 20))
-                .attr("color", "white")
-                .selectAll("text")
-                .attr("color", "black")
-                .attr("font-weight", "bold")
-                .attr("text-anchor", "middle")
-                .attr("font-size", "12");
+            let countRange = countScale.domain();
+            countRange[2] = countRange[1] - countRange[0];
+            let countPoint = [];
+            for(let i = 0; i < numStops; i++) {
+                countPoint.push(i * countRange[2]/(numStops-1) + countRange[0]);
+            }
 
-            svg_calendar_heatmap.select("#yAxis")
-                .call(yAxis)
-                .attr("transform", translation(20, 0))
-                .attr("color", "white")
-                .selectAll("text")
-                .attr("color", "black")
-                .attr("font-weight", "bold")
-                .attr("text-anchor", "middle")
-                .attr("font-size", "12");
-
-
-        } else {
-            let dataset = d3.group(calendar_data, d => d.date.slice(5));
-            let keys = Array.from(dataset.keys());
-
-            let min = d3.min(keys, d => dataset.get(d).length),
-                max = d3.max(keys, d => dataset.get(d).length);
-
-            let colors = d3.scaleLinear()
-                .domain([min, max])
-                .range(["#ffffff", "#ff0000"]);
-
-            let monthScale = d3.scaleLinear()
-                .domain([1, 12])
-                .range([45, width - 40])
-
-            let xAxis = d3.axisTop()
-                .scale(monthScale)
-                .tickValues(ticksMonth)
-                .tickFormat(function (d, i) {
-                    return months[i];
+            d3.select("#legend-map-calendar")
+                .attr("y1", "0%").attr("x1", "0%")
+                .attr("y2", "0%").attr("x2", "100%")
+                .selectAll("stop")
+                .data(d3.range(numStops))
+                .enter()
+                .join("stop")
+                .attr("offset", function(d,i) {
+                    return countScale( countPoint[i] )/ def_i5.legendWidth;
+                })
+                .attr("stop-color", function(d,i) {
+                    return colors( countPoint[i] );
                 });
 
-            let dayScale = d3.scaleLinear()
-                .domain([1, 31])
-                .range([21 + squareHeight / 2, height - 30]);
+            d3.select("#legendRectHeatmap")
+                .style("fill", "url(#legend-map-calendar)");
 
-            let yAxis = d3.axisLeft()
-                .scale(dayScale);
+            //Define legend axis
+            let legendAxis = d3.axisTop()
+                .ticks(4)
+                .tickFormat(d3.format("0.2s"))
+                .scale(countScale);
 
-            svg_calendar_heatmap.select(".rects")
-                .selectAll("rect")
-                .data(keys)
-                .join("rect")
-                .attr("class", ".rects")
-                .attr("width", squareWidth)
-                .attr("height", squareHeight)
+            //Set up legend axis
+            d3.select("#legend-axis-heatmap")
                 .transition()
-                .delay(300)
+                .delay(1000)
                 .duration(1000)
-                .attr("x", d => monthScale(getMonth(d)) - squareWidth / 2)
-                .attr("y", d => dayScale(getDay(d)) - squareHeight / 2)
-                .attr("fill", d => colors(dataset.get(d).length))
-                .select("title")
-                .text(d => d + ", " + dataset.get(d).length);
-
-            svg_calendar_heatmap.select("#xAxis")
-                .call(xAxis)
-                .attr("transform", translation(0, 20))
-                .attr("color", "white")
-                .selectAll("text")
-                .attr("color", "black")
-                .attr("font-weight", "bold")
-                .attr("text-anchor", "middle")
-                .attr("font-size", "12");
-
-            svg_calendar_heatmap.select("#yAxis")
-                .call(yAxis)
-                .attr("transform", translation(20, 0))
-                .attr("color", "white")
-                .selectAll("text")
-                .attr("color", "black")
-                .attr("font-weight", "bold")
-                .attr("text-anchor", "middle")
-                .attr("font-size", "12");
-
+                .call(legendAxis);
         }
+
+        let width = def_i5.width,
+            height = def_i5.height,
+            padding = def_i5.padding;
+
+        let x_scale = null,
+            y_scale = null,
+            y_domain,
+            x_function = null,
+            y_function = null,
+            values,
+            format_function = null,
+            dataset,
+            min,
+            max,
+            valueOf = null,
+            title = null;
+
+        let years = new Array(0);
+
+        calendar_data.forEach(d => {
+            if(!years.includes(d.year)) {
+                years.push(d.year);
+            }
+        });
+
+        if(isOneYear(years)) {
+            dataset = d3.rollup(calendar_data, v => v.length, d=>d.date, d=> d.dow);
+            dataset = unroll(dataset, ['date', 'dow', 'value']);
+            global = dataset;
+            x_scale = d3.scaleBand()
+                .domain(ticksDoW)
+                .range([padding, width - padding]);
+
+            y_scale = d3.scaleBand()
+                .domain(ticksWeekN)
+                .range([padding, height - padding * 2]);
+
+            y_domain = y_scale.domain().filter((d,i) => !(i%5));
+
+            x_function = d => d.dow;
+            y_function = d => getWeekNumber(d.date);
+
+            values = ticksMonth;
+            format_function = i => daysOfWeek[i];
+
+            min = d3.min(dataset, d => d.value);
+            max = d3.max(dataset, d => d.value);
+
+            valueOf = d => d.value;
+            title = d => d.date.slice(5) + ', ' + d.value;
+        }
+        else{
+            dataset = d3.rollup(calendar_data, v => v.length, d=> d.year, d=>d.date.slice(5));
+            dataset = unroll(dataset, ['year', 'date', 'value']);
+            dataset = d3.rollup(dataset, v=>d3.mean(v, v=> v.value), d=> d.date);
+
+            x_scale = d3.scaleBand()
+                .domain(ticksMonth)
+                .range([padding, width - padding])
+
+            y_scale = d3.scaleBand()
+                .domain(ticksDays)
+                .range([padding, height - padding * 2]);
+
+            y_domain = y_scale.domain();
+
+            x_function = d => getMonth(d[0]);
+            y_function = d => getDay(d[0]);
+
+            values = ticksDays;
+            format_function = i => months[i];
+
+            min = d3.min(dataset, d => d[1]);
+            max = d3.max(dataset, d => d[1]);
+
+            valueOf = d => d[1];
+            title = d => d;
+        }
+
+        let colors = d3.scaleLinear()
+            .domain([min, max])
+            .range(["#8ecefd","#f88b9d"]);
+
+        let xAxis = d3.axisTop()
+            .scale(x_scale)
+            .tickValues(values)
+            .tickFormat((d, i) => format_function(i));
+
+        let yAxis = d3.axisLeft()
+            .scale(y_scale)
+            .tickValues(y_domain);
+
+        svg_calendar_heatmap.select(".rects")
+            .selectAll("rect")
+            .data(dataset)
+            .join("rect")
+            .attr("class", ".rects")
+            .attr("width", x_scale.bandwidth())
+            .attr("height", y_scale.bandwidth())
+            .transition()
+            .delay(300)
+            .duration(1000)
+            .attr("x", d => x_scale(x_function(d)))
+            .attr("y", d => y_scale(y_function(d)))
+            .attr("fill", d => colors(valueOf(d)))
+            .select("title")
+            .text(d => title(d));
+
+        svg_calendar_heatmap.select("#xAxis")
+            .call(xAxis)
+            .attr("transform", translation(0, padding))
+            .selectAll("text")
+            .attr("color", "black")
+            .attr("font-size", "12");
+
+        svg_calendar_heatmap.select("#yAxis")
+            .call(yAxis)
+            .attr("transform", translation(padding, 0))
+            .selectAll("text")
+            .attr("color", "black")
+            .attr("font-size", "12");
+
+        updateHeatmapLegend(min, max, colors);
+    }
+
+    function update_radar_chart() {
+        let width = def_i6.width,
+            height = def_i6.height,
+            padding = def_i6.padding;
+
+
+
+        let dataset = d3.group(radar_data, d => d.time.slice(0, 2));
+
+        for(let i = 0; i<24; i++) {
+            let formattedNumber = ('0' + i).slice(-2);
+            if(!dataset.has(formattedNumber)) {
+                dataset.set(formattedNumber, new Array(0));
+            }
+        }
+
+        let keys = Array.from(dataset.keys());
+
+        dataset = new Map([...dataset.entries()].sort());
+
+        let max = d3.max(keys, d => dataset.get(d).length);
+
+        let datasetO = new Map(dataset);
+        let datasetAM = new Map(dataset);
+        let datasetPM = new Map(dataset);
+
+        for (let k of datasetAM.keys()) {
+            if (!(k >= 6 && k <= 20))
+                datasetAM.delete(k);
+        }
+        for (let k of datasetPM.keys()) {
+            if (!(k > 17 || k < 9))
+                datasetPM.delete(k);
+        }
+
+        let datasetPM1st = new Map(datasetPM);
+        let datasetPM2nd = new Map(datasetPM);
+
+        for (let k of datasetPM1st.keys()) {
+            if (k < 18)
+                datasetPM1st.delete(k);
+        }
+        for (let k of datasetPM2nd.keys()) {
+            if (k > 8)
+                datasetPM2nd.delete(k);
+        }
+
+        datasetPM = new Map([...datasetPM1st].concat([...datasetPM2nd]));
+
+        dataset = [datasetAM, datasetPM];
+
+        let radius = (height / 2 - padding * 4);
+
+        let rScale = d3.scaleLinear()
+            .range([0, radius])
+            .domain([0, max]);
+
+        let Format = d3.format('.3s');
+        let angleSlice = Math.PI / 6;
+
+        d3.selectAll("#axisLabel")
+            .data(d3.range(1,(def_i6.levels+1)).reverse())
+            .join('text')
+            .transition()
+            .delay(300)
+            .duration(1000)
+            .attr("x", d => d * radius / def_i6.levels + def_i6.labelFactor)
+            .attr("y", 0)
+            .attr("dy", "0.4em")
+            .style("font-size", "10px")
+            .attr("fill", "#737373")
+            .text(d =>Format(max * d/def_i6.levels));
+
+        let angles = d3.scaleLinear()
+            .domain([0, 12])
+            .range([0, 2 * Math.PI]);
+
+        let radarLine = d3.lineRadial()
+            .angle((d) => angles(+d[0]))
+            .radius(d => rScale(d[1].length))
+            .curve(d3.curveCardinalOpen);
+
+        d3.selectAll("#radarStroke")
+            .data(dataset)
+            .join('path')
+            .attr("d", radarLine)
+            .style("stroke-width", 2 + "px")
+            .style("stroke", (d, i) => (i===0)? "#af7070" : "#44849a")
+            .style("fill", "none");
+
+        d3.selectAll("#radarCircle")
+            .data(datasetO)
+            .join('circle')
+            .attr("r", 3)
+            .attr("cx", (d) => rScale(d[1].length) * Math.cos(angles(+d[0]%12) - Math.PI/2))
+            .attr("cy", (d) => rScale(d[1].length) * Math.sin(angles(+d[0]%12) - Math.PI/2))
+            .style("fill", (d) => (+d[0] >= 7 && +d[0] <= 19)? "#ac5454" : "#2e657d")
+            .style("fill-opacity", 0.8)
+            .select('title')
+            .text(d => d[1].length);
     }
 
     function updateUnitChart() {
@@ -2224,7 +2352,7 @@ function updateIdioms() {
     }
 
     let count = 0;
-    let maxCount = 3;
+    let maxCount = 5;
 
     function updateDirty() {
         if (count !== maxCount) return;
@@ -2252,6 +2380,22 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
+            if (isDirty["5"])  update_radar_chart();
+            resolve();
+        }).then( r => {
+            count++;
+            updateDirty();
+        });
+
+        new Promise(function(resolve, reject) {
+            if (isDirty["6"])  update_calendar_heatmap();
+            resolve();
+        }).then( r => {
+            count++;
+            updateDirty();
+        });
+
+        new Promise(function(resolve, reject) {
             if (isDirty["7"])  updateUnitChart();
             resolve();
         }).then( r => {
@@ -2271,6 +2415,7 @@ function getFilteredData() {
         map_data = currentAccidentData;
         pyramid_data = currentAccidentData;
         calendar_data = currentAccidentData;
+        radar_data = currentAccidentData;
         other_data = currentAccidentData;
         return;
     }
@@ -2296,6 +2441,12 @@ function getFilteredData() {
 
         return f2;
     })
+
+    radar_data = map_data.filter(d => {
+        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
+
+        return f2;
+    });
 
     calendar_data = map_data.filter(d => {
         let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
@@ -2386,12 +2537,12 @@ function getWeekNumber(arg) {
 
 function isOneYear(keys) {
     if (keys == null) {
-        return;
+        return false;
     }
 
-    let currentYear = getYear(keys[0]);
+    let currentYear = keys[0];
     let different = keys.some(function (k) {
-        if(getYear(k) !== currentYear) {
+        if(k !== currentYear) {
             return true;
         }
     });
@@ -2410,6 +2561,18 @@ function getMonth(arg) {
 
 function getDay(arg) {
     return parseInt(arg.slice(3));
+}
+
+function leapYearsBetween(start, end) {
+    return leapYearsBefore(end) - leapYearsBefore(start);
+}
+
+function leapYearsBefore(year) {
+    return Math.floor(year/4) - Math.floor(year/100) + Math.floor(year/400)
+}
+
+function yearRange() {
+    return selectedMaxYear - selectedMinYear;
 }
 
 function setDirty(value) {
