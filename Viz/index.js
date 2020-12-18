@@ -1351,7 +1351,7 @@ function gen_unit_chart() {
         effectiveWidth = width-margin.left - margin.right,
         effectiveHeight = height - margin.top - margin.bottom;
 
-    unit_data = d3.rollup(accident_data, v => v.length,
+    let unit_data = d3.rollup(accident_data, v => v.length,
         d => d.area, d => d.speed_limit)
 
     let unrolledData = unroll(unit_data, ['area','speed_limit']);
@@ -1528,10 +1528,9 @@ function gen_unit_chart() {
             .attr("preserveAspectRatio", "none")
             .style("outline", "2px solid black")
             .on('click', (event, d) => {
-                // g.selectAll('.car').interrupt();
                 dispatch.call("unitEvent", this, {event: event, datum: [d, 'urban']});
             })
-            .append('text')
+            .append('title')
             .html('Urban')
 
         topGroup.selectAll('.road-option')
@@ -1545,10 +1544,9 @@ function gen_unit_chart() {
             .attr("preserveAspectRatio", "none")
             .style("outline", "1px solid black")
             .on('click', (event, d) => {
-                // g.selectAll('.car').interrupt();
                 dispatch.call("unitEvent", this, {event: event, datum: [d, 'rural']});
             })
-            .append('text')
+            .append('title')
             .html('Rural')
     }
 
@@ -1599,19 +1597,72 @@ function gen_unit_chart() {
             .attr("transform", translation(0, margin.top + effectiveHeight))
             .attr("class", "legend_group");
 
-        let leftMarginLegend = effectiveWidth / 2 - def_i7.carScaleSize;
+        // Add speed limit with mph
+        let leftMarginSign = 20;
+        {
+            g_legend.append('svg:image')
+                .attr("class", "legend_sign")
+                .attr("transform", translation(leftMarginSign, margin.bottom / 2 - def_i7.carScaleSize * 0.7))
+                .attr('width', def_i7.carScaleSize)
+                // .attr('height', def_i7.carScaleSize)
+                .attr("xlink:href", "data/speed-signs/20.svg")
 
-        g_legend.append('svg:image')
-            .attr("class", "car_scale")
-            .attr("transform", d => translation(leftMarginLegend, margin.bottom / 2 - def_i7.carScaleSize / 2))
-            .attr('width', def_i7.carScaleSize)
-            .attr('height', def_i7.carScaleSize)
-            .attr("xlink:href", "data/car_2.png")
+            g_legend.append('text')
+                .attr("transform", translation(leftMarginSign + def_i7.carScaleSize + 2,
+                    margin.bottom / 2 + 3))
+                .html('- 20 mph')
+        }
 
-        g_legend.append('text')
-            .attr("transform", d => translation(leftMarginLegend + def_i7.carScaleSize,
-                margin.bottom / 2))
-            .html(' - ' + d3.format('.2s')(carValue))
+        // Add car value
+        let leftMarginCar = leftMarginSign + 90;
+        {
+            g_legend.append('svg:image')
+                .attr("class", "car_scale")
+                .attr("transform", translation(leftMarginCar, margin.bottom / 2 - def_i7.carScaleSize / 2))
+                .attr('width', def_i7.carScaleSize)
+                .attr('height', def_i7.carScaleSize)
+                .attr("xlink:href", "data/car_2.png")
+
+            g_legend.append('text')
+                .attr("class", "legend_car_value")
+                .attr("transform", translation(leftMarginCar + def_i7.carScaleSize * 0.9,
+                    margin.bottom / 2 + 3))
+                .html('- ' + d3.format('.2s')(carValue))
+        }
+
+        // Add urban legend
+        let leftMarginUrban = leftMarginSign + leftMarginCar + 45;
+        {
+            g_legend.append('svg:image')
+                .attr("class", "car_scale")
+                .attr("transform", translation(leftMarginUrban, margin.bottom / 2 - def_i7.carScaleSize * 0.6))
+                .attr('width', def_i7.carScaleSize)
+                .attr('height', def_i7.carScaleSize)
+                .attr("xlink:href", "data/road-option/urban.png")
+
+            g_legend.append('text')
+                .attr("class", "legend_car_value")
+                .attr("transform", translation(leftMarginUrban + def_i7.carScaleSize * 1,
+                    margin.bottom / 2 + 3))
+                .html('- Urban')
+        }
+
+        // Add rural legend
+        let leftMarginRural = leftMarginUrban + 85;
+        {
+            g_legend.append('svg:image')
+                .attr("class", "car_scale")
+                .attr("transform", translation(leftMarginRural, margin.bottom / 2 - def_i7.carScaleSize * 0.6))
+                .attr('width', def_i7.carScaleSize)
+                .attr('height', def_i7.carScaleSize)
+                .attr("xlink:href", "data/road-option/rural.png")
+
+            g_legend.append('text')
+                .attr("class", "legend_car_value")
+                .attr("transform", translation(leftMarginRural + def_i7.carScaleSize,
+                    margin.bottom / 2 + 3))
+                .html('- Rural')
+        }
     }
 
 
@@ -3061,8 +3112,8 @@ function updateIdioms() {
             let carValue = totalNum / nCars;
             let g_legend = svg_unit_chart.select(".legend_group");
 
-            g_legend.select('text')
-                .html(' - ' + d3.format('.2s')(carValue))
+            g_legend.select('.legend_car_value')
+                .html('- ' + d3.format('.2s')(carValue))
         }
     }
 
