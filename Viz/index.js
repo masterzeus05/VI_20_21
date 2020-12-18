@@ -3255,12 +3255,6 @@ function filtersAlluvialLabel(){
         'High winds' : [weatherFilters, [4,5,6]],
     }
 
-    var alluvial_filters = {
-        "light" : [],
-        "road_surface" : [],
-        "weather" : []
-    }
-
     for(let i = 0 ; i < array.length ; i++){
         alluvial_filters_map[array[i]][1].forEach(item => alluvial_filters_map[array[i]][0].add(item))
     }
