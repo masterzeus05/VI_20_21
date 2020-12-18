@@ -20,6 +20,7 @@ let svg_unit_chart = null;
 let selectedCounties = new Set();
 let selectedPyramidBars = new Set();
 let selectedPyramidSex = new Set();
+let selectedAlluvialLabels = new Set();
 let selectedMinYear, selectedMaxYear;
 let selectedRoadOptions = {};
 let currentAccidentData = null;
@@ -33,7 +34,7 @@ let speedLimits = [];
 
 let yearSlider;
 
-let dispatch = d3.dispatch("countyEvent", "pyramidEvent", "unitEvent","pyramidMaleEvent","pyramidFemaleEvent");
+let dispatch = d3.dispatch("countyEvent", "pyramidEvent", "unitEvent","pyramidMaleEvent","pyramidFemaleEvent","alluvialEvent");
 
 // Car and speed limit signs options
 let carNumber = 40;
@@ -220,6 +221,7 @@ function processData() {
     // Events
     prepareCountyEvent();
     preparePyramidEvent();
+    prepareAlluvialEvent();
     prepareUnitEvent();
     prepareButtons();
 }
@@ -1041,7 +1043,6 @@ function gen_alluvial_chart() {
         g.append("g")
         .attr('id', 'nodes_label')
         .style("font", "15px sans-serif")
-        .style("font-weight", "bold")
         .selectAll("text")
         .data(nodes)
         .join("text")
@@ -1051,6 +1052,20 @@ function gen_alluvial_chart() {
         .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
         .text(function(d){
             return d.name})
+        .on("mouseover", function(event,d) {
+            // Check if not selected
+            if (!selectedAlluvialLabels.has(d.name)) {
+                d3.select(event.target)
+                    .style("font-weight", "bold")
+            }
+        })
+        .on("mouseout", function(event, d) {
+            // Check if not selected
+            if (!selectedAlluvialLabels.has(d.name)) {
+                d3.select(event.target)
+                    .style("font-weight", "normal");
+            }
+        })
         // .append("tspan")
         // .attr("fill-opacity", 0.7)
         // .text(d => ` ${d.value.toLocaleString()}`);
@@ -1920,6 +1935,51 @@ function prepareUnitEvent() {
     });
 }
 
+//Click on alluvial label
+function prepareAlluvialEvent() {
+
+    svg_alluvial_chart.select("g").select("#nodes_label").selectAll("text").on("click", (event, datum) => {
+        dispatch.call("alluvialEvent", this, {event: event, datum: datum});
+    });
+
+    dispatch.on("alluvialEvent", function(args) {
+        let event = args.event;
+
+        selectedLabel = event.target.innerHTML;
+
+        // Check if already selected
+        if (selectedAlluvialLabels.has(selectedLabel)) {
+            // Unselect
+            selectedAlluvialLabels.delete(selectedLabel);
+            Object.keys(isDirty).map(function(key, index) {
+                if (key !== "3") isDirty[key] = true;
+            });
+
+            // Change stroke to unselected
+            d3.select(event.target)
+               .style("font-weight", "normal");
+
+        }
+        else {
+            // Select
+            selectedAlluvialLabels.add(selectedLabel);
+            Object.keys(isDirty).map(function(key, index) {
+                if (key !== "3") isDirty[key] = true;
+            });
+
+            // Change stroke to selected
+            d3.select(event.target)
+            .style("font-weight", "bold");
+        }
+
+        // Update all idioms
+        setTimeout(function(){ updateIdioms(); }, 0)
+
+        
+    });
+
+}
+
 // Prepare buttons
 function prepareButtons() {
     d3.select("#reset").on("click", function(event) {
@@ -1931,7 +1991,7 @@ function prepareButtons() {
             setDirty(true);
         }
 
-        if (!(selectedCounties.size === 0 && selectedPyramidBars.size === 0)) {
+        if (!(selectedCounties.size === 0 && selectedPyramidBars.size === 0 && selectedAlluvialLabels.size === 0)) {
             setDirty(true);
         }
 
@@ -1979,6 +2039,10 @@ function prepareButtons() {
         // Select urban roads
         svg_unit_chart.selectAll(".road-urban")
             .style("outline", "2px solid black")
+        
+        // Unselect alluvial labels
+        svg_alluvial_chart.select("g").select("#nodes_label").selectAll("text").style("font-weight","normal")
+        selectedAlluvialLabels.clear()
 
         // Update all idioms to reset data
         currentAccidentData = [];
@@ -2960,9 +3024,22 @@ function updateIdioms() {
 
             g.select("#nodes_label")
             .style("font", "15px sans-serif")
-            .style("font-weight", "bold")
             .selectAll("text")
             .data(nodes)
+            .on("mouseover", function(event,d) {
+                // Check if not selected
+                if (!selectedAlluvialLabels.has(d.name)) {
+                    d3.select(event.target)
+                        .style("font-weight", "bold")
+                }
+            })
+            .on("mouseout", function(event, d) {
+                // Check if not selected
+                if (!selectedAlluvialLabels.has(d.name)) {
+                    d3.select(event.target)
+                        .style("font-weight", "normal");
+                }
+            })
             .transition()
             .delay(1500)
             .duration(1000)
@@ -2971,6 +3048,13 @@ function updateIdioms() {
             .attr("dy", "0.35em")
             .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
             .text(d => d.name)
+            .style("font-weight", function(d){
+                if (selectedAlluvialLabels.has(d.name))
+                    return "bold"
+                else
+                    return "normal"
+            })
+            
     }
 
     let count = 0;
@@ -3060,6 +3144,8 @@ function getFilteredData() {
 
     let pyramidFilters = filtersPyramidBar();
 
+    let alluvialFilters = filtersAlluvialLabel();
+
     currentAccidentData = accident_data.filter( d => {
         let f1 = d.year >= selectedMinYear && d.year <= selectedMaxYear;
 
@@ -3071,13 +3157,21 @@ function getFilteredData() {
 
         let f4 =  (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
 
-        return f3 && f4;
+        let f5 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
+                && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
+                && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather)); 
+
+        return f3 && f4 && f5;
     });
 
     pyramid_data = currentAccidentData.filter(d => {
         let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
 
-        return f2;
+        let f3 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
+                && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
+                && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather));  
+
+        return f2 && f3 ;
     })
 
     radar_data = map_data.filter(d => {
@@ -3097,8 +3191,11 @@ function getFilteredData() {
         let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
         let f3 = (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
         let f4 = (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
+        let f5 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
+                 && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
+                 && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather)); 
 
-        return f1 && f2 && f3 && f4;
+        return f1 && f2 && f3 && f4 && f5;
     })
 }
 
@@ -3134,6 +3231,41 @@ function filtersPyramidBar(){
     }
 
     return {sex_filter: sexFilters, age_filter: ageFilters};
+}
+
+function filtersAlluvialLabel(){
+    let array = Array.from(selectedAlluvialLabels);
+
+    let lightFilters = new Set();
+    let roadFilters = new Set();
+    let weatherFilters = new Set();
+
+    var alluvial_filters_map = {
+        'Daylight' : [lightFilters, [1]],
+        'Darkness' : [lightFilters, [4,5,6,7]],
+        'Dry' : [roadFilters, [1]],
+        'Wet or damp' : [roadFilters, [2]],
+        'Snow' : [roadFilters, [3]],
+        'Other' : [roadFilters, [4,5,6,7]],
+        'Fine' : [weatherFilters, [1,4]],
+        'Raining' : [weatherFilters, [2,5]],
+        'Snowing' : [weatherFilters, [3,6]],
+        'Fog or mist' : [weatherFilters, [7]],
+        'No high winds' : [weatherFilters, [1,2,3]],
+        'High winds' : [weatherFilters, [4,5,6]],
+    }
+
+    var alluvial_filters = {
+        "light" : [],
+        "road_surface" : [],
+        "weather" : []
+    }
+
+    for(let i = 0 ; i < array.length ; i++){
+        alluvial_filters_map[array[i]][1].forEach(item => alluvial_filters_map[array[i]][0].add(item))
+    }
+
+    return {light_filter: lightFilters, road_filter: roadFilters, weather_filter: weatherFilters};
 }
 
 function unroll(rollup, keys, label = "value", p = {}) {
