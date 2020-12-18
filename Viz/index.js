@@ -5,7 +5,6 @@ let map_data = null;
 let pyramid_data = null;
 let test_data = null;
 let calendar_data = null;
-let radar_data = null;
 let unit_data = null;
 let other_data = null;
 
@@ -20,7 +19,7 @@ let svg_unit_chart = null;
 let selectedCounties = new Set();
 let selectedPyramidBars = new Set();
 let selectedPyramidSex = new Set();
-let selectedAlluvialLabels = new Set();
+let selected_month_dow = new Set();
 let selectedMinYear, selectedMaxYear;
 let selectedRoadOptions = {};
 let currentAccidentData = null;
@@ -34,7 +33,7 @@ let speedLimits = [];
 
 let yearSlider;
 
-let dispatch = d3.dispatch("countyEvent", "pyramidEvent", "unitEvent","pyramidMaleEvent","pyramidFemaleEvent","alluvialEvent");
+let dispatch = d3.dispatch("countyEvent", "pyramidEvent", 'heatmapEvent', "unitEvent","pyramidMaleEvent","pyramidFemaleEvent");
 
 // Car and speed limit signs options
 let carNumber = 40;
@@ -221,7 +220,7 @@ function processData() {
     // Events
     prepareCountyEvent();
     preparePyramidEvent();
-    prepareAlluvialEvent();
+    prepareHeatmapEvent();
     prepareUnitEvent();
     prepareButtons();
 }
@@ -291,7 +290,7 @@ function gen_choropleth_map() {
     svg_choropleth_map.call(zoom);
 
     let groupedByCounties = d3.rollup(accident_data, v => v.length,
-            d => d.county);
+        d => d.county);
     groupedByCounties.delete('NaN');
 
     let max = Math.max(...groupedByCounties.values());
@@ -623,6 +622,12 @@ function  gen_calendar_heatmap() {
         .attr("height", height)
         .attr("class", "svg_group");
 
+    svg_calendar_heatmap.append('filter')
+        .attr('id','desaturate')
+        .append('feColorMatrix')
+        .attr('type','matrix')
+        .attr('values',"0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0 0 0 1 0");
+
     let g = svg_calendar_heatmap.append("g")
         .attr("class", "svg_group");
 
@@ -632,7 +637,19 @@ function  gen_calendar_heatmap() {
         .attr("transform", translation(0,padding))
         .selectAll("text")
         .attr("color", "black")
-        .attr("font-size", "12");
+        .attr("font-size", "12")
+        .on('mouseover', (e, d) => {
+            if(!selected_month_dow.has(d)) {
+                d3.select(e.target)
+                    .style("font-size", "18");
+            }
+        })
+        .on('mouseout', (e, d) => {
+            if(!selected_month_dow.has(d)) {
+                d3.select(e.target)
+                    .style("font-size", "12");
+            }
+        });
 
     g.append("g")
         .attr("id", "yAxis")
@@ -648,7 +665,7 @@ function  gen_calendar_heatmap() {
     rects.selectAll("rect")
         .data(dataset)
         .join("rect")
-        .attr("class", ".rects")
+        .attr("class", "rects")
         .attr("width", monthScale.bandwidth())
         .attr("height", dayScale.bandwidth())
         .attr("x", d => monthScale(getMonth(d[0])))
@@ -837,7 +854,7 @@ function gen_pyramid_bar_chart() {
             // Check if not selected
             if (!selectedPyramidSex.has("1")) {
                 d3.select(event.target)
-                .style("font-weight", "normal");
+                    .style("font-weight", "normal");
             }
         })
 
@@ -862,7 +879,7 @@ function gen_pyramid_bar_chart() {
             // Check if not selected
             if (!selectedPyramidSex.has("2")) {
                 d3.select(event.target)
-                .style("font-weight", "normal");
+                    .style("font-weight", "normal");
             }
         })
 
@@ -959,9 +976,9 @@ function gen_alluvial_chart() {
         effectiveHeight = height - margin.bottom - margin.top;
 
     svg_alluvial_chart = d3.select("#alluvial_chart")
-    .append("svg")
-    .attr("width", width)
-    .attr("height", height);
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
 
     let g = svg_alluvial_chart.append("g")
         .attr("transform", translation(margin.left, margin.top))
@@ -1001,19 +1018,19 @@ function gen_alluvial_chart() {
 
     graph = dataToGraph(filteredAccidentData,keys);
     sankey = d3.sankey()
-    .nodeSort(function(a, b){
-        return a.name.localeCompare(b.name);})
-    .linkSort(null)
-    .nodeWidth(10)
-    .nodePadding(2)
-    .extent([[0, 5], [effectiveWidth, effectiveHeight]])
+        .nodeSort(function(a, b){
+            return a.name.localeCompare(b.name);})
+        .linkSort(null)
+        .nodeWidth(10)
+        .nodePadding(2)
+        .extent([[0, 5], [effectiveWidth, effectiveHeight]])
     color = d3.scaleOrdinal(["#abc4d6", "#b6abd6","#d6abb3", "#d6abd3"]).domain(["Dry","Snow","Wet or damp","Other"])
 
     const {nodes, links} = sankey({
         nodes: graph.nodes.map(d => Object.assign({}, d)),
         links: graph.links.map(d => Object.assign({}, d))});
 
-        g.append("g")
+    g.append("g")
         .attr('id', 'nodes_rect')
         .selectAll("rect")
         .data(nodes)
@@ -1025,7 +1042,7 @@ function gen_alluvial_chart() {
         .append("title")
         .text(d => `${d.name}\n${d.value.toLocaleString()}`);
 
-        g.append("g")
+    g.append("g")
         .attr('id', 'links_path')
         .attr("fill", "none")
         .selectAll("g")
@@ -1040,9 +1057,10 @@ function gen_alluvial_chart() {
         .append("title")
         .text(d => `${d.names.join(" → ")}\n${d.value.toLocaleString()}`);
 
-        g.append("g")
+    g.append("g")
         .attr('id', 'nodes_label')
         .style("font", "15px sans-serif")
+        .style("font-weight", "bold")
         .selectAll("text")
         .data(nodes)
         .join("text")
@@ -1052,49 +1070,35 @@ function gen_alluvial_chart() {
         .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
         .text(function(d){
             return d.name})
-        .on("mouseover", function(event,d) {
-            // Check if not selected
-            if (!selectedAlluvialLabels.has(d.name)) {
-                d3.select(event.target)
-                    .style("font-weight", "bold")
-            }
-        })
-        .on("mouseout", function(event, d) {
-            // Check if not selected
-            if (!selectedAlluvialLabels.has(d.name)) {
-                d3.select(event.target)
-                    .style("font-weight", "normal");
-            }
-        })
-        // .append("tspan")
-        // .attr("fill-opacity", 0.7)
-        // .text(d => ` ${d.value.toLocaleString()}`);
+    // .append("tspan")
+    // .attr("fill-opacity", 0.7)
+    // .text(d => ` ${d.value.toLocaleString()}`);
 
-        names_in_viz = {"road_surface": "Road Surface",
-                        "light": "Light",
-                        "weather": "Weather",
-                        "wind": "Wind"
-                        }
+    names_in_viz = {"road_surface": "Road Surface",
+        "light": "Light",
+        "weather": "Weather",
+        "wind": "Wind"
+    }
 
-        svg_alluvial_chart.append("text")
+    svg_alluvial_chart.append("text")
         .attr("text-anchor", "begin")
         .attr("x", margin.left)
         .attr("y", height - 20)
         .text(names_in_viz[keys[0]]);
 
-        svg_alluvial_chart.append("text")
+    svg_alluvial_chart.append("text")
         .attr("text-anchor", "middle")
         .attr("x", margin.left + effectiveWidth/3)
         .attr("y", height - 20)
         .text(names_in_viz[keys[1]]);
 
-        svg_alluvial_chart.append("text")
+    svg_alluvial_chart.append("text")
         .attr("text-anchor", "middle")
         .attr("x", margin.left + (effectiveWidth/3)*2)
         .attr("y", height - 20)
         .text(names_in_viz[keys[2]]);
 
-        svg_alluvial_chart.append("text")
+    svg_alluvial_chart.append("text")
         .attr("text-anchor", "end")
         .attr("x", margin.left + (effectiveWidth/3)*3)
         .attr("y", height - 20)
@@ -1119,11 +1123,11 @@ function gen_lines_chart() {
     })
 
     worst_makes = (Array.from(
-        d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
-          .sort(function(a, b){return a[1]-b[1]})
-          .reverse()
-          .slice(0,5)
-        ).map(x => x[0]);
+            d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
+            .sort(function(a, b){return a[1]-b[1]})
+            .reverse()
+            .slice(0,5)
+    ).map(x => x[0]);
 
 
     let groupedByMakeAndYear = d3.group(filteredAccidentData, d => d.make, d => d.vehicle_year);
@@ -1151,7 +1155,7 @@ function gen_lines_chart() {
                 min_year = Math.min(min_year,i);
                 dict.Year = i;
                 dict.n = d3.sum(groupedByMakeAndYear.get(key).get(i), d=>d.number_of_casualties)/
-                            numberOfAccidentsPerYear.get(i).get(key);
+                    numberOfAccidentsPerYear.get(i).get(key);
                 maxY = ( dict.n > maxY ) ? dict.n : maxY;
             }
             dicts.push(dict);
@@ -1178,74 +1182,74 @@ function gen_lines_chart() {
             yearsTicks.push(i);
         j++;
     }
-    yearsTicks[0] = min_Vehicle_Year 
-    yearsTicks[yearsTicks.length-1] = max_Vehicle_Year 
+    yearsTicks[0] = min_Vehicle_Year
+    yearsTicks[yearsTicks.length-1] = max_Vehicle_Year
 
     var yearsDomain=[];
     for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
-        yearsDomain.push(i);  
+        yearsDomain.push(i);
     }
 
     var x = d3.scaleLinear()
-              .domain([min_Vehicle_Year,max_Vehicle_Year])
-              .range([0, effectiveWidth]);
+        .domain([min_Vehicle_Year,max_Vehicle_Year])
+        .range([0, effectiveWidth]);
 
     var y = d3.scaleLinear()
-              .domain([0, maxY])
-              .range([effectiveHeight, 0]);
+        .domain([0, maxY])
+        .range([effectiveHeight, 0]);
 
     var svg = d3.select("#line_chart")
-                .append("svg")
-                .attr("width", width)
-                .attr("height", height)
-                .append("g")
-                .attr("transform", translation(margin.left,margin.top));
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .append("g")
+        .attr("transform", translation(margin.left,margin.top));
 
     var line = d3.line()
-                 .x(function(d) { return x(d.year); })
-                 .y(function(d) { return y(d.casualties); });
+        .x(function(d) { return x(d.year); })
+        .y(function(d) { return y(d.casualties); });
 
     var color = d3.scaleOrdinal(d3.schemeCategory10)
-                  .domain(worst_makes);
+        .domain(worst_makes);
 
     var makes = color.domain().map(function(name) {
         return {
-          name: name,
-          values: yearCasualtiesByMake.get(name).map(function(d) {
-            return {
-              year: d.Year,
-              casualties: d.n
-            };
-          })
+            name: name,
+            values: yearCasualtiesByMake.get(name).map(function(d) {
+                return {
+                    year: d.Year,
+                    casualties: d.n
+                };
+            })
         };
     });
 
     var make = svg.selectAll(".make")
-    .data(makes)
-    .enter().append("g")
-    .attr("class", "make");
+        .data(makes)
+        .enter().append("g")
+        .attr("class", "make");
 
     svg.append("text")
-    .attr("text-anchor", "end")
-    .attr("y", -50)
-    .attr("x", -50)
-    .attr("dy", ".75em")
-    .attr("transform", "rotate(-90)")
-    .text("Number of casualties per accident");
+        .attr("text-anchor", "end")
+        .attr("y", -50)
+        .attr("x", -50)
+        .attr("dy", ".75em")
+        .attr("transform", "rotate(-90)")
+        .text("Number of casualties per accident");
 
     svg.append("text")
-    .attr("text-anchor", "middle")
-    .attr("font-size",20)
-    .style("font-weight", "bold")
-    .attr("y", -13)
-    .attr("x", effectiveWidth/2)
-    .text("Makes with more casualties");
+        .attr("text-anchor", "middle")
+        .attr("font-size",20)
+        .style("font-weight", "bold")
+        .attr("y", -13)
+        .attr("x", effectiveWidth/2)
+        .text("Makes with more casualties");
 
     svg.append("text")
-    .attr("text-anchor", "end")
-    .attr("x", width/2 - 20)
-    .attr("y", effectiveHeight+35)
-    .text("Year");
+        .attr("text-anchor", "end")
+        .attr("x", width/2 - 20)
+        .attr("y", effectiveHeight+35)
+        .text("Year");
 
     make.append("path")
         .attr("class", "line")
@@ -1260,39 +1264,39 @@ function gen_lines_chart() {
         .on('mouseout', mouseout);
 
     svg.append("g")
-       .attr('id', 'xAxis')
-       .attr("transform", translation(0,effectiveHeight))
-       .call(d3.axisBottom(x).tickValues(yearsTicks).tickFormat(d3.format("d")) );
+        .attr('id', 'xAxis')
+        .attr("transform", translation(0,effectiveHeight))
+        .call(d3.axisBottom(x).tickValues(yearsTicks).tickFormat(d3.format("d")) );
 
     svg.append("g")
-       .attr('id', 'yAxis')
-       .call(d3.axisLeft(y));
+        .attr('id', 'yAxis')
+        .call(d3.axisLeft(y));
 
     var focus = svg
-    .append('g')
-    .append('circle')
-    .attr('id', 'focus')
+        .append('g')
+        .append('circle')
+        .attr('id', 'focus')
         .style("fill", "none")
         .attr("stroke", "black")
         .attr('r', 2.5)
         .style("opacity", 0)
 
     var new_g = svg.append('g')
-                    .attr('id', 'newg')
+        .attr('id', 'newg')
 
     var text_back = new_g
-    .append('rect')
-    .attr("id","back_text")
-    .attr('width', 80)
-    .attr('height', 80)
-    .attr('fill', "#fffff1" )
-    .attr('stroke', "black")
-    .style("opacity", 0)
+        .append('rect')
+        .attr("id","back_text")
+        .attr('width', 80)
+        .attr('height', 80)
+        .attr('fill', "#fffff1" )
+        .attr('stroke', "black")
+        .style("opacity", 0)
 
 
     var focusText = new_g
-    .append('text')
-    .attr("class","focus_text")
+        .append('text')
+        .attr("class","focus_text")
         .style("opacity", 0)
         .attr("text-anchor", "left")
         .attr("alignment-baseline", "middle")
@@ -1342,7 +1346,7 @@ function gen_lines_chart() {
             }
         }
         focus.attr("cx", x(selected_year))
-             .attr("cy", y(yvalue.casualties))
+            .attr("cy", y(yvalue.casualties))
 
         var n = yvalue.casualties.toFixed(2);
 
@@ -1357,14 +1361,14 @@ function gen_lines_chart() {
         }
 
         focusText.attr("x", x(selected_year)+margin)
-                 .attr("y", y(yvalue.casualties))
+            .attr("y", y(yvalue.casualties))
 
         text_back
-        .attr('width', d3.selectAll('.focus_text').node().getBoundingClientRect().width+2)
-        .attr('height', d3.selectAll('.focus_text').node().getBoundingClientRect().height+2)
-        .attr("x", parseInt(d3.selectAll('.focus_text').node().getAttribute("x"))-1)
-        .attr("y", parseInt(d3.selectAll('.focus_text').node().getAttribute("y")) -7)
-        .style("opacity", 1)
+            .attr('width', d3.selectAll('.focus_text').node().getBoundingClientRect().width+2)
+            .attr('height', d3.selectAll('.focus_text').node().getBoundingClientRect().height+2)
+            .attr("x", parseInt(d3.selectAll('.focus_text').node().getAttribute("x"))-1)
+            .attr("y", parseInt(d3.selectAll('.focus_text').node().getAttribute("y")) -7)
+            .style("opacity", 1)
 
 
     }
@@ -1708,8 +1712,8 @@ function gen_year_slider() {
 }
 
 /**
-* Events
-*/
+ * Events
+ */
 
 // Click on county
 // FIXME: If clicked on i.e. isles of scilly, pyramid chart bugs out
@@ -1719,11 +1723,11 @@ function prepareCountyEvent() {
     });
 
     dispatch.on("countyEvent", function(args) {
-        
+
         let div = d3.select("body").select("#choropleth_tooltip");
         div.transition()
-                    .duration(500)
-                    .style("opacity", 0);
+            .duration(500)
+            .style("opacity", 0);
 
         // Get arguments
         let event = args.event, datum = args.datum;
@@ -1801,13 +1805,13 @@ function preparePyramidEvent() {
             if (selectedPyramidSex.has(sex)){
                 if (sex === "1"){
                     svg_pyramid_bar_chart.select(".left-bar")
-                                         .select("#maleLabel")
-                                         .style("font-weight", "normal");
+                        .select("#maleLabel")
+                        .style("font-weight", "normal");
                 }
                 else{
                     svg_pyramid_bar_chart.select(".right-bar")
-                                         .select("#femaleLabel")
-                                         .style("font-weight", "normal");
+                        .select("#femaleLabel")
+                        .style("font-weight", "normal");
                 }
 
                 selectedPyramidSex.delete(sex);
@@ -1853,7 +1857,7 @@ function preparePyramidEvent() {
 
             // Change text to unselected
             d3.select(event.target)
-            .style("font-weight", "normal")
+                .style("font-weight", "normal")
 
             // Unselect
             selectedPyramidSex.delete(sex);
@@ -1877,7 +1881,7 @@ function preparePyramidEvent() {
 
             // Change text to selected
             d3.select(event.target)
-            .style("font-weight", "bolder")
+                .style("font-weight", "bolder")
 
             // Select
             selectedPyramidSex.add(sex);
@@ -1900,6 +1904,43 @@ function preparePyramidEvent() {
         // Update all idioms
         setTimeout(function(){ updateIdioms(); }, 0)
     }
+}
+
+//Click on heatmap
+function prepareHeatmapEvent() {
+    svg_calendar_heatmap.select('#xAxis')
+        .selectAll("text").on('click', (e, d) =>
+        dispatch.call('heatmapEvent', this, {event: e, datum: d})
+    );
+
+    dispatch.on('heatmapEvent', function(args) {
+        let x = args.datum,
+            event = args.event;
+
+        if(selected_month_dow.has(x)) {
+            console.log(selected_month_dow);
+            selected_month_dow.delete(x);
+            Object.keys(isDirty).map(function(key, index) {
+                setDirty(true);
+            });
+
+            d3.select(event.target)
+                .style("font-weight", "normal")
+                .style("font-size", "12");
+        }
+        else {
+            selected_month_dow.add(x);
+            Object.keys(isDirty).map(function(key, index) {
+                setDirty(true);
+            });
+
+            d3.select(event.target)
+                .style("font-weight", "bold")
+                .style("font-size", "17");;
+        }
+
+        setTimeout(function(){ updateIdioms(); }, 0);
+    });
 }
 
 //Click on unit chart
@@ -1935,51 +1976,6 @@ function prepareUnitEvent() {
     });
 }
 
-//Click on alluvial label
-function prepareAlluvialEvent() {
-
-    svg_alluvial_chart.select("g").select("#nodes_label").selectAll("text").on("click", (event, datum) => {
-        dispatch.call("alluvialEvent", this, {event: event, datum: datum});
-    });
-
-    dispatch.on("alluvialEvent", function(args) {
-        let event = args.event;
-
-        selectedLabel = event.target.innerHTML;
-
-        // Check if already selected
-        if (selectedAlluvialLabels.has(selectedLabel)) {
-            // Unselect
-            selectedAlluvialLabels.delete(selectedLabel);
-            Object.keys(isDirty).map(function(key, index) {
-                if (key !== "3") isDirty[key] = true;
-            });
-
-            // Change stroke to unselected
-            d3.select(event.target)
-               .style("font-weight", "normal");
-
-        }
-        else {
-            // Select
-            selectedAlluvialLabels.add(selectedLabel);
-            Object.keys(isDirty).map(function(key, index) {
-                if (key !== "3") isDirty[key] = true;
-            });
-
-            // Change stroke to selected
-            d3.select(event.target)
-            .style("font-weight", "bold");
-        }
-
-        // Update all idioms
-        setTimeout(function(){ updateIdioms(); }, 0)
-
-        
-    });
-
-}
-
 // Prepare buttons
 function prepareButtons() {
     d3.select("#reset").on("click", function(event) {
@@ -1991,7 +1987,7 @@ function prepareButtons() {
             setDirty(true);
         }
 
-        if (!(selectedCounties.size === 0 && selectedPyramidBars.size === 0 && selectedAlluvialLabels.size === 0)) {
+        if (!(selectedCounties.size === 0 && selectedPyramidBars.size === 0)) {
             setDirty(true);
         }
 
@@ -2017,11 +2013,23 @@ function prepareButtons() {
         selectedPyramidBars.clear();
         selectedPyramidSex.clear();
         svg_pyramid_bar_chart.select(".left-bar")
-                             .select("#maleLabel")
-                             .style("font-weight", "normal");
+            .select("#maleLabel")
+            .style("font-weight", "normal");
         svg_pyramid_bar_chart.select(".right-bar")
-                             .select("#femaleLabel")
-                             .style("font-weight", "normal");
+            .select("#femaleLabel")
+            .style("font-weight", "normal");
+
+        //Unselect heatmap
+        if(selected_month_dow.size !== 0 ) {
+            setDirty(true);
+        }
+
+        selected_month_dow.size.clear();
+
+        svg_calendar_heatmap.select('#xAxis')
+            .selectAll('text')
+            .style("font-weight", "normal");
+
 
         // Reset selected road options
         if (Object.values(selectedRoadOptions).filter( v => v === "rural").length !== 0) {
@@ -2039,10 +2047,6 @@ function prepareButtons() {
         // Select urban roads
         svg_unit_chart.selectAll(".road-urban")
             .style("outline", "2px solid black")
-        
-        // Unselect alluvial labels
-        svg_alluvial_chart.select("g").select("#nodes_label").selectAll("text").style("font-weight","normal")
-        selectedAlluvialLabels.clear()
 
         // Update all idioms to reset data
         currentAccidentData = [];
@@ -2074,7 +2078,7 @@ function updateIdioms() {
             pointB = effectiveWidth - regionWidth;
 
         let groupedByAgeGender = d3.rollup(pyramid_data, v => v.length,
-                d => d.age, d => d.sex);
+            d => d.age, d => d.sex);
 
         // Sort map
         groupedByAgeGender = new Map(
@@ -2463,6 +2467,12 @@ function updateIdioms() {
             .attr("x", d => x_scale(x_function(d)))
             .attr("y", d => y_scale(y_function(d)))
             .attr("fill", d => colors(valueOf(d)))
+            .style('filter', d => {
+                if(selected_month_dow.size === 0) {
+                    return '';
+                }
+                return selected_month_dow.has(+x_function(d))?'':'url(#desaturate)'
+            })
             .select("title")
             .text(d => title(d));
 
@@ -2471,7 +2481,19 @@ function updateIdioms() {
             .attr("transform", translation(0, padding))
             .selectAll("text")
             .attr("color", "black")
-            .attr("font-size", "12");
+            .attr("font-size", "12")
+            .on('mouseover', (e, d) => {
+                if(!selected_month_dow.has(d)) {
+                    d3.select(e.target)
+                        .style("font-size", "18");
+                }
+            })
+            .on('mouseout', (e, d) => {
+                if(!selected_month_dow.has(d)) {
+                    d3.select(e.target)
+                        .style("font-size", "12");
+                }
+            });
 
         svg_calendar_heatmap.select("#yAxis")
             .call(yAxis)
@@ -2490,7 +2512,7 @@ function updateIdioms() {
 
 
 
-        let dataset = d3.group(radar_data, d => d.time.slice(0, 2));
+        let dataset = d3.group(other_data, d => d.time.slice(0, 2));
 
         for(let i = 0; i<24; i++) {
             let formattedNumber = ('0' + i).slice(-2);
@@ -2733,11 +2755,11 @@ function updateIdioms() {
         })
 
         worst_makes = (Array.from(
-            d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
-            .sort(function(a, b){return a[1]-b[1]})
-            .reverse()
-            .slice(0,5)
-            ).map(x => x[0]);
+                d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
+                .sort(function(a, b){return a[1]-b[1]})
+                .reverse()
+                .slice(0,5)
+        ).map(x => x[0]);
 
 
         let groupedByMakeAndYear = d3.group(filteredAccidentData, d => d.make, d => d.vehicle_year);
@@ -2765,7 +2787,7 @@ function updateIdioms() {
                     min_year = Math.min(min_year,i);
                     dict.Year = i;
                     dict.n = d3.sum(groupedByMakeAndYear.get(key).get(i), d=>d.number_of_casualties)/
-                                numberOfAccidentsPerYear.get(i).get(key);
+                        numberOfAccidentsPerYear.get(i).get(key);
                     maxY = ( dict.n > maxY ) ? dict.n : maxY;
                 }
                 dicts.push(dict);
@@ -2801,136 +2823,136 @@ function updateIdioms() {
         }
 
         var x = d3.scaleLinear()
-                .domain([min_Vehicle_Year,max_Vehicle_Year])
-                .range([0, effectiveWidth]);
+            .domain([min_Vehicle_Year,max_Vehicle_Year])
+            .range([0, effectiveWidth]);
 
         var y = d3.scaleLinear()
-                .domain([0, maxY])
-                .range([effectiveHeight, 0]);
+            .domain([0, maxY])
+            .range([effectiveHeight, 0]);
 
         var svg = d3.select("#line_chart")
-                    .select("svg")
-                    .select("g")
+            .select("svg")
+            .select("g")
 
         var line = d3.line()
-                    .x(function(d) { return x(d.year); })
-                    .y(function(d) { return y(d.casualties); });
+            .x(function(d) { return x(d.year); })
+            .y(function(d) { return y(d.casualties); });
 
         var color = d3.scaleOrdinal(d3.schemeCategory10)
-                  .domain(worst_makes);
+            .domain(worst_makes);
 
         var makes = color.domain().map(function(name) {
             return {
-            name: name,
-            values: yearCasualtiesByMake.get(name).map(function(d) {
-                return {
-                year: d.Year,
-                casualties: d.n
-                };
-            })
+                name: name,
+                values: yearCasualtiesByMake.get(name).map(function(d) {
+                    return {
+                        year: d.Year,
+                        casualties: d.n
+                    };
+                })
             };
         });
-    svg.selectAll(".make")
-        .data(makes).select("path")
-        .on('mouseover', mouseover)
-        .on('mousemove', mousemove)
-        .on('mouseout', mouseout)
-        .transition()
-        .delay(1000)
-        .duration(2000)
-        .attr("d", function(d) {
-            return line(d.values);
-        })
-        .style("stroke", function(d) {
-            return color(d.name);
-        })
+        svg.selectAll(".make")
+            .data(makes).select("path")
+            .on('mouseover', mouseover)
+            .on('mousemove', mousemove)
+            .on('mouseout', mouseout)
+            .transition()
+            .delay(1000)
+            .duration(2000)
+            .attr("d", function(d) {
+                return line(d.values);
+            })
+            .style("stroke", function(d) {
+                return color(d.name);
+            })
 
 
 
-    svg.select("#xAxis")
-        .transition()
-        .delay(1000)
-        .duration(2000)
-        .call(d3.axisBottom(x).tickValues(yearsTicks).tickFormat(d3.format("d")) );
+        svg.select("#xAxis")
+            .transition()
+            .delay(1000)
+            .duration(2000)
+            .call(d3.axisBottom(x).tickValues(yearsTicks).tickFormat(d3.format("d")) );
 
-    svg.select("#yAxis")
-       .call(d3.axisLeft(y));
-
-
-       var focus = svg.select("#focus")
-
-       var new_g = svg.select('#newg')
-
-       var text_back = new_g
-       .select('#back_text')
+        svg.select("#yAxis")
+            .call(d3.axisLeft(y));
 
 
-       var focusText = new_g.select(".focus_text")
+        var focus = svg.select("#focus")
 
-       svg.selectAll("#dot")
-           .data(worst_makes)
-           .style("fill", function(d){ return color(d)})
+        var new_g = svg.select('#newg')
 
-       // Add one dot in the legend for each name.
+        var text_back = new_g
+            .select('#back_text')
 
 
-       svg.selectAll("#label")
-           .data(worst_makes)
-           .style("fill", function(d){ return color(d)})
-           .text(function(d){ return d})
-           .attr("text-anchor", "left")
-           .style("alignment-baseline", "middle")
+        var focusText = new_g.select(".focus_text")
 
-       function mouseover() {
-           focus.style("opacity", 1)
-           focusText.style("opacity",1)
-       }
+        svg.selectAll("#dot")
+            .data(worst_makes)
+            .style("fill", function(d){ return color(d)})
 
-       function mousemove(event,datum) {
-           // recover coordinate we need
-           const pointer = d3.pointer(event, this);
-           var x0 = x.invert(pointer[0]);
-           var selected_year = yearsDomain[d3.bisectCenter(yearsDomain, x0)];
-           var yvalue = 0;
-           for (var k in datum.values){
-               if (datum.values[k].year === selected_year) {
-                   yvalue = datum.values[k]
-                   break;
-               }
-           }
-           focus.attr("cx", x(selected_year))
+        // Add one dot in the legend for each name.
+
+
+        svg.selectAll("#label")
+            .data(worst_makes)
+            .style("fill", function(d){ return color(d)})
+            .text(function(d){ return d})
+            .attr("text-anchor", "left")
+            .style("alignment-baseline", "middle")
+
+        function mouseover() {
+            focus.style("opacity", 1)
+            focusText.style("opacity",1)
+        }
+
+        function mousemove(event,datum) {
+            // recover coordinate we need
+            const pointer = d3.pointer(event, this);
+            var x0 = x.invert(pointer[0]);
+            var selected_year = yearsDomain[d3.bisectCenter(yearsDomain, x0)];
+            var yvalue = 0;
+            for (var k in datum.values){
+                if (datum.values[k].year === selected_year) {
+                    yvalue = datum.values[k]
+                    break;
+                }
+            }
+            focus.attr("cx", x(selected_year))
                 .attr("cy", y(yvalue.casualties))
 
-           var n = yvalue.casualties.toFixed(2);
+            var n = yvalue.casualties.toFixed(2);
 
-           focusText.html("x:" + selected_year + "  -  " + "y:" + n + " - " + datum.name)
+            focusText.html("x:" + selected_year + "  -  " + "y:" + n + " - " + datum.name)
 
-           let margin;
-           if (x(selected_year) > 160){
-               margin = - d3.selectAll('.focus_text').node().getBoundingClientRect().width - 15
-           }
-           else{
-               margin = 15
-           }
+            let margin;
+            if (x(selected_year) > 160){
+                margin = - d3.selectAll('.focus_text').node().getBoundingClientRect().width - 15
+            }
+            else{
+                margin = 15
+            }
 
-           focusText.attr("x", x(selected_year)+margin)
-                    .attr("y", y(yvalue.casualties))
+            focusText.attr("x", x(selected_year)+margin)
+                .attr("y", y(yvalue.casualties))
 
-           text_back
-           .attr('width', d3.selectAll('.focus_text').node().getBoundingClientRect().width+2)
-           .attr('height', d3.selectAll('.focus_text').node().getBoundingClientRect().height+2)
-           .attr("x", parseInt(d3.selectAll('.focus_text').node().getAttribute("x"))-1)
-           .attr("y", parseInt(d3.selectAll('.focus_text').node().getAttribute("y")) -7)
-           .style("opacity", 1)
+            text_back
+                .attr('width', d3.selectAll('.focus_text').node().getBoundingClientRect().width+2)
+                .attr('height', d3.selectAll('.focus_text').node().getBoundingClientRect().height+2)
+                .attr("x", parseInt(d3.selectAll('.focus_text').node().getAttribute("x"))-1)
+                .attr("y", parseInt(d3.selectAll('.focus_text').node().getAttribute("y")) -7)
+                .style("opacity", 1)
 
 
-       }
+        }
 
-       function mouseout() {
-           focus.style("opacity", 0)
-           focusText.style("opacity", 0)
-           text_back.style("opacity", 0)
-       }
+        function mouseout() {
+            focus.style("opacity", 0)
+            focusText.style("opacity", 0)
+            text_back.style("opacity", 0)
+        }
 
 
     }
@@ -2943,7 +2965,7 @@ function updateIdioms() {
             effectiveHeight = height - margin.bottom - margin.top;
 
         svg_alluvial_chart = d3.select("#alluvial_chart")
-        .select("svg")
+            .select("svg")
 
         let g = svg_alluvial_chart.select("g");
 
@@ -2980,12 +3002,12 @@ function updateIdioms() {
 
         graph = dataToGraph(filteredAccidentData,keys);
         sankey = d3.sankey()
-        .nodeSort(function(a, b){
-            return a.name.localeCompare(b.name);})
-        .linkSort(null)
-        .nodeWidth(10)
-        .nodePadding(2)
-        .extent([[0, 5], [effectiveWidth, effectiveHeight]])
+            .nodeSort(function(a, b){
+                return a.name.localeCompare(b.name);})
+            .linkSort(null)
+            .nodeWidth(10)
+            .nodePadding(2)
+            .extent([[0, 5], [effectiveWidth, effectiveHeight]])
         color = d3.scaleOrdinal(["#abc4d6", "#b6abd6","#d6abb3", "#d6abd3"]).domain(["Dry","Snow","Wet or damp","Other"])
         //["#abc4d6", "#d6abb3"]
 
@@ -2995,7 +3017,7 @@ function updateIdioms() {
             links: graph.links.map(d => Object.assign({}, d))});
 
 
-            g.select("#nodes_rect")
+        g.select("#nodes_rect")
             .selectAll("rect")
             .data(nodes)
             .transition()
@@ -3008,7 +3030,7 @@ function updateIdioms() {
             .select("title")
             .text(d => `${d.name}\n${d.value.toLocaleString()}`);
 
-            g.select("#links_path")
+        g.select("#links_path")
             .attr("fill", "none")
             .selectAll("path")
             .data(links)
@@ -3022,24 +3044,11 @@ function updateIdioms() {
             .select("title")
             .text(d => `${d.names.join(" → ")}\n${d.value.toLocaleString()}`);
 
-            g.select("#nodes_label")
+        g.select("#nodes_label")
             .style("font", "15px sans-serif")
+            .style("font-weight", "bold")
             .selectAll("text")
             .data(nodes)
-            .on("mouseover", function(event,d) {
-                // Check if not selected
-                if (!selectedAlluvialLabels.has(d.name)) {
-                    d3.select(event.target)
-                        .style("font-weight", "bold")
-                }
-            })
-            .on("mouseout", function(event, d) {
-                // Check if not selected
-                if (!selectedAlluvialLabels.has(d.name)) {
-                    d3.select(event.target)
-                        .style("font-weight", "normal");
-                }
-            })
             .transition()
             .delay(1500)
             .duration(1000)
@@ -3048,13 +3057,6 @@ function updateIdioms() {
             .attr("dy", "0.35em")
             .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
             .text(d => d.name)
-            .style("font-weight", function(d){
-                if (selectedAlluvialLabels.has(d.name))
-                    return "bold"
-                else
-                    return "normal"
-            })
-            
     }
 
     let count = 0;
@@ -3137,14 +3139,11 @@ function getFilteredData() {
         map_data = currentAccidentData;
         pyramid_data = currentAccidentData;
         calendar_data = currentAccidentData;
-        radar_data = currentAccidentData;
         other_data = currentAccidentData;
         return;
     }
 
     let pyramidFilters = filtersPyramidBar();
-
-    let alluvialFilters = filtersAlluvialLabel();
 
     currentAccidentData = accident_data.filter( d => {
         let f1 = d.year >= selectedMinYear && d.year <= selectedMaxYear;
@@ -3156,47 +3155,39 @@ function getFilteredData() {
         let f3 =  (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
 
         let f4 =  (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
-
-        let f5 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
-                && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
-                && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather)); 
-
-        return f3 && f4 && f5;
+        let f6 = (selected_month_dow.size === 0) ||
+            (yearRange() > 1 ? selected_month_dow.has(+d.date.slice(5, 7)): selected_month_dow.has(d.dow));
+        return f3 && f4 && f6;
     });
 
     pyramid_data = currentAccidentData.filter(d => {
         let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
+        let f6 = (selected_month_dow.size === 0) ||
+            (yearRange() > 1 ? selected_month_dow.has(+d.date.slice(5, 7)): selected_month_dow.has(d.dow));
 
-        let f3 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
-                && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
-                && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather));  
-
-        return f2 && f3 ;
-    })
-
-    radar_data = map_data.filter(d => {
-        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
-
-        return f2;
+        return f2 && f6;
     });
 
-    calendar_data = map_data.filter(d => {
-        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
-
-        return f2;
-    });
-
-    other_data = accident_data.filter( d => {
+    calendar_data = currentAccidentData.filter(d => {
         let f1 = d.year >= selectedMinYear && d.year <= selectedMaxYear;
         let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
         let f3 = (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
         let f4 = (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
-        let f5 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
-                 && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
-                 && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather)); 
 
-        return f1 && f2 && f3 && f4 && f5;
-    })
+        return f1 && f2 && f3 && f4;
+    });
+
+    other_data = currentAccidentData.filter( d => {
+        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
+        let f3 = (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
+        let f4 = (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
+        let f6 = (selected_month_dow.size === 0) ||
+            (yearRange() > 1 ? selected_month_dow.has(+d.date.slice(5, 7)): selected_month_dow.has(d.dow));
+
+        return f2 && f3 && f4 && f6;
+    });
+
+    console.log(map_data);
 }
 
 /**
@@ -3231,35 +3222,6 @@ function filtersPyramidBar(){
     }
 
     return {sex_filter: sexFilters, age_filter: ageFilters};
-}
-
-function filtersAlluvialLabel(){
-    let array = Array.from(selectedAlluvialLabels);
-
-    let lightFilters = new Set();
-    let roadFilters = new Set();
-    let weatherFilters = new Set();
-
-    var alluvial_filters_map = {
-        'Daylight' : [lightFilters, [1]],
-        'Darkness' : [lightFilters, [4,5,6,7]],
-        'Dry' : [roadFilters, [1]],
-        'Wet or damp' : [roadFilters, [2]],
-        'Snow' : [roadFilters, [3]],
-        'Other' : [roadFilters, [4,5,6,7]],
-        'Fine' : [weatherFilters, [1,4]],
-        'Raining' : [weatherFilters, [2,5]],
-        'Snowing' : [weatherFilters, [3,6]],
-        'Fog or mist' : [weatherFilters, [7]],
-        'No high winds' : [weatherFilters, [1,2,3]],
-        'High winds' : [weatherFilters, [4,5,6]],
-    }
-
-    for(let i = 0 ; i < array.length ; i++){
-        alluvial_filters_map[array[i]][1].forEach(item => alluvial_filters_map[array[i]][0].add(item))
-    }
-
-    return {light_filter: lightFilters, road_filter: roadFilters, weather_filter: weatherFilters};
 }
 
 function unroll(rollup, keys, label = "value", p = {}) {
@@ -3327,13 +3289,6 @@ function getDay(arg) {
     return parseInt(arg.slice(3));
 }
 
-function leapYearsBetween(start, end) {
-    return leapYearsBefore(end) - leapYearsBefore(start);
-}
-
-function leapYearsBefore(year) {
-    return Math.floor(year/4) - Math.floor(year/100) + Math.floor(year/400)
-}
 
 function yearRange() {
     return selectedMaxYear - selectedMinYear;
@@ -3353,36 +3308,36 @@ function dataToGraph(data,keys) {
     const links = [];
 
     for (const k of keys) {
-      for (const d of data) {
-        const key = JSON.stringify([k, d[k]]);
-        if (nodeByKey.has(key)) continue;
-        const node = {name: d[k]};
-        nodes.push(node);
-        nodeByKey.set(key, node);
-        indexByKey.set(key, ++index);
-      }
+        for (const d of data) {
+            const key = JSON.stringify([k, d[k]]);
+            if (nodeByKey.has(key)) continue;
+            const node = {name: d[k]};
+            nodes.push(node);
+            nodeByKey.set(key, node);
+            indexByKey.set(key, ++index);
+        }
     }
 
     for (let i = 1; i < keys.length; ++i) {
-      const a = keys[i - 1];
-      const b = keys[i];
-      const prefix = keys.slice(0, i + 1);
-      const linkByKey = new Map;
-      for (const d of data) {
-        const names = prefix.map(k => d[k]);
-        const key = JSON.stringify(names);
-        const value = d.value || 1;
-        let link = linkByKey.get(key);
-        if (link) { link.value += value; continue; }
-        link = {
-          source: indexByKey.get(JSON.stringify([a, d[a]])),
-          target: indexByKey.get(JSON.stringify([b, d[b]])),
-          names,
-          value
-        };
-        links.push(link);
-        linkByKey.set(key, link);
-      }
+        const a = keys[i - 1];
+        const b = keys[i];
+        const prefix = keys.slice(0, i + 1);
+        const linkByKey = new Map;
+        for (const d of data) {
+            const names = prefix.map(k => d[k]);
+            const key = JSON.stringify(names);
+            const value = d.value || 1;
+            let link = linkByKey.get(key);
+            if (link) { link.value += value; continue; }
+            link = {
+                source: indexByKey.get(JSON.stringify([a, d[a]])),
+                target: indexByKey.get(JSON.stringify([b, d[b]])),
+                names,
+                value
+            };
+            links.push(link);
+            linkByKey.set(key, link);
+        }
 
 
     }
