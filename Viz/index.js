@@ -99,13 +99,12 @@ let def_i2 = {
     height: 400
 }
 
-
 // Alluvial Chart Settings
 let def_i3 = {
     margin: {
-        top: 32-20,
+        top: 12,
         right: 20,
-        bottom: 32+10,
+        bottom: 42,
         left: 20,
         middle: 24
     },
@@ -588,7 +587,6 @@ function gen_radial_chart() {
         .text('PM');
 }
 
-
 //Generate calendar heatmap
 function  gen_calendar_heatmap() {
     let width = def_i5.width,
@@ -982,13 +980,13 @@ function gen_alluvial_chart() {
         effectiveHeight = height - margin.bottom - margin.top;
 
     svg_alluvial_chart = d3.select("#alluvial_chart")
-    .append("svg")
-    .attr("width", width)
-    .attr("height", height);
+                           .append("svg")
+                           .attr("width", width)
+                           .attr("height", height);
 
     let g = svg_alluvial_chart.append("g")
-        .attr("transform", translation(margin.left, margin.top))
-        .attr("class", "svg_group");
+                              .attr("transform", translation(margin.left, margin.top))
+                              .attr("class", "svg_group");
 
     let filteredAccidentData = accident_data.filter(d => {
         return d.road_surface !== "" && !isNaN(d.road_surface) && d.road_surface!=-1
@@ -1018,110 +1016,107 @@ function gen_alluvial_chart() {
         };
     });
 
-
-
     keys = filteredAccidentData.columns.slice(0, -1)
 
     graph = dataToGraph(filteredAccidentData,keys);
     sankey = d3.sankey()
-    .nodeSort(function(a, b){
-        return a.name.localeCompare(b.name);})
-    .linkSort(null)
-    .nodeWidth(10)
-    .nodePadding(2)
-    .extent([[0, 5], [effectiveWidth, effectiveHeight]])
+               .nodeSort(function(a, b){return a.name.localeCompare(b.name);})
+               .linkSort(null)
+               .nodeWidth(10)
+               .nodePadding(2)
+               .extent([[0, 5], [effectiveWidth, effectiveHeight]])
     color = d3.scaleOrdinal(["#abc4d6", "#b6abd6","#d6abb3", "#d6abd3"]).domain(["Dry","Snow","Wet or damp","Other"])
 
     const {nodes, links} = sankey({
         nodes: graph.nodes.map(d => Object.assign({}, d)),
         links: graph.links.map(d => Object.assign({}, d))});
 
-        g.append("g")
-        .attr('id', 'nodes_rect')
-        .selectAll("rect")
-        .data(nodes)
-        .join("rect")
-        .attr("x", d => d.x0)
-        .attr("y", d => d.y0)
-        .attr("height", d => d.y1 - d.y0)
-        .attr("width", d => d.x1 - d.x0)
-        .append("title")
-        .text(d => `${d.name}\n${d.value.toLocaleString()}`);
+    g.append("g")
+    .attr('id', 'nodes_rect')
+    .selectAll("rect")
+    .data(nodes)
+    .join("rect")
+    .attr("x", d => d.x0)
+    .attr("y", d => d.y0)
+    .attr("height", d => d.y1 - d.y0)
+    .attr("width", d => d.x1 - d.x0)
+    .append("title")
+    .text(d => `${d.name}\n${d.value.toLocaleString()}`);
 
-        g.append("g")
-        .attr('id', 'links_path')
-        .attr("fill", "none")
-        .selectAll("g")
-        .data(links)
-        .join("path")
-        .attr("d", d3.sankeyLinkHorizontal())
-        .attr("stroke", function(d){
-            return color(d.names[0])
-        })
-        .attr("stroke-width", d => d.width)
-        .style("mix-blend-mode", "multiply")
-        .append("title")
-        .text(d => `${d.names.join(" → ")}\n${d.value.toLocaleString()}`);
+    g.append("g")
+    .attr('id', 'links_path')
+    .attr("fill", "none")
+    .selectAll("g")
+    .data(links)
+    .join("path")
+    .attr("d", d3.sankeyLinkHorizontal())
+    .attr("stroke", function(d){
+        return color(d.names[0])
+    })
+    .attr("stroke-width", d => d.width)
+    .style("mix-blend-mode", "multiply")
+    .append("title")
+    .text(d => `${d.names.join(" → ")}\n${d.value.toLocaleString()}`);
 
-        g.append("g")
-        .attr('id', 'nodes_label')
-        .style("font", "15px sans-serif")
-        .selectAll("text")
-        .data(nodes)
-        .join("text")
-        .attr("x", d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
-        .attr("y", d => (d.y1 + d.y0) / 2)
-        .attr("dy", "0.35em")
-        .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
-        .text(function(d){
-            return d.name})
-        .on("mouseover", function(event,d) {
-            // Check if not selected
-            if (!selectedAlluvialLabels.has(d.name)) {
-                d3.select(event.target)
-                    .style("font-weight", "bold")
-            }
-        })
-        .on("mouseout", function(event, d) {
-            // Check if not selected
-            if (!selectedAlluvialLabels.has(d.name)) {
-                d3.select(event.target)
-                    .style("font-weight", "normal");
-            }
-        })
-        // .append("tspan")
-        // .attr("fill-opacity", 0.7)
-        // .text(d => ` ${d.value.toLocaleString()}`);
+    g.append("g")
+    .attr('id', 'nodes_label')
+    .style("font", "15px sans-serif")
+    .selectAll("text")
+    .data(nodes)
+    .join("text")
+    .attr("x", d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
+    .attr("y", d => (d.y1 + d.y0) / 2)
+    .attr("dy", "0.35em")
+    .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
+    .text(function(d){
+        return d.name})
+    .on("mouseover", function(event,d) {
+        // Check if not selected
+        if (!selectedAlluvialLabels.has(d.name)) {
+            d3.select(event.target)
+                .style("font-weight", "bold")
+        }
+    })
+    .on("mouseout", function(event, d) {
+        // Check if not selected
+        if (!selectedAlluvialLabels.has(d.name)) {
+            d3.select(event.target)
+                .style("font-weight", "normal");
+        }
+    })
+    // .append("tspan")
+    // .attr("fill-opacity", 0.7)
+    // .text(d => ` ${d.value.toLocaleString()}`);
 
-        names_in_viz = {"road_surface": "Road Surface",
-                        "light": "Light",
-                        "weather": "Weather",
-                        "wind": "Wind"
-                        }
+    names_in_viz = {"road_surface": "Road Surface",
+                    "light": "Light",
+                    "weather": "Weather",
+                    "wind": "Wind"
+                    }
 
-        svg_alluvial_chart.append("text")
-        .attr("text-anchor", "begin")
-        .attr("x", margin.left)
-        .attr("y", height - 20)
-        .text(names_in_viz[keys[0]]);
+    svg_alluvial_chart.append("text")
+    .attr("text-anchor", "begin")
+    .attr("x", margin.left)
+    .attr("y", height - 20)
+    .text(names_in_viz[keys[0]]);
 
-        svg_alluvial_chart.append("text")
-        .attr("text-anchor", "middle")
-        .attr("x", margin.left + effectiveWidth/3)
-        .attr("y", height - 20)
-        .text(names_in_viz[keys[1]]);
+    svg_alluvial_chart.append("text")
+    .attr("text-anchor", "middle")
+    .attr("x", margin.left + effectiveWidth/3)
+    .attr("y", height - 20)
+    .text(names_in_viz[keys[1]]);
 
-        svg_alluvial_chart.append("text")
-        .attr("text-anchor", "middle")
-        .attr("x", margin.left + (effectiveWidth/3)*2)
-        .attr("y", height - 20)
-        .text(names_in_viz[keys[2]]);
+    svg_alluvial_chart.append("text")
+    .attr("text-anchor", "middle")
+    .attr("x", margin.left + (effectiveWidth/3)*2)
+    .attr("y", height - 20)
+    .text(names_in_viz[keys[2]]);
 
-        svg_alluvial_chart.append("text")
-        .attr("text-anchor", "end")
-        .attr("x", margin.left + (effectiveWidth/3)*3)
-        .attr("y", height - 20)
-        .text(names_in_viz[keys[3]]);
+    svg_alluvial_chart.append("text")
+    .attr("text-anchor", "end")
+    .attr("x", margin.left + (effectiveWidth/3)*3)
+    .attr("y", height - 20)
+    .text(names_in_viz[keys[3]]);
 
 }
 
@@ -1147,7 +1142,6 @@ function gen_lines_chart() {
           .reverse()
           .slice(0,5)
         ).map(x => x[0]);
-
 
     let groupedByMakeAndYear = d3.group(filteredAccidentData, d => d.make, d => d.vehicle_year);
     let min_Vehicle_Year = d3.min(filteredAccidentData, d => d.vehicle_year);
@@ -2886,84 +2880,78 @@ function updateIdioms() {
             })
             };
         });
-    svg.selectAll(".make")
-        .data(makes).select("path")
-        .on('mouseover', mouseover)
-        .on('mousemove', mousemove)
-        .on('mouseout', mouseout)
-        .transition()
-        .delay(1000)
-        .duration(2000)
-        .attr("d", function(d) {
-            return line(d.values);
-        })
-        .style("stroke", function(d) {
-            return color(d.name);
-        })
+        svg.selectAll(".make")
+           .data(makes).select("path")
+           .on('mouseover', mouseover)
+           .on('mousemove', mousemove)
+           .on('mouseout', mouseout)
+           .transition()
+           .delay(1000)
+           .duration(2000)
+           .attr("d", function(d) {
+                return line(d.values);
+           })
+           .style("stroke", function(d) {
+                return color(d.name);
+           })
 
+        svg.select("#xAxis")
+            .transition()
+            .delay(1000)
+            .duration(2000)
+            .call(d3.axisBottom(x).tickValues(yearsTicks).tickFormat(d3.format("d")) );
 
+        svg.select("#yAxis")
+        .call(d3.axisLeft(y));
 
-    svg.select("#xAxis")
-        .transition()
-        .delay(1000)
-        .duration(2000)
-        .call(d3.axisBottom(x).tickValues(yearsTicks).tickFormat(d3.format("d")) );
+        var focus = svg.select("#focus")
 
-    svg.select("#yAxis")
-       .call(d3.axisLeft(y));
+        var focusText = d3.select("#focus_text")
 
+        svg.selectAll("#dot")
+            .data(worst_makes)
+            .style("fill", function(d){ return color(d)})
 
-       var focus = svg.select("#focus")
+        // Add one dot in the legend for each name.
 
-       var focusText = d3.select("#focus_text")
+        svg.selectAll("#label")
+            .data(worst_makes)
+            .style("fill", function(d){ return color(d)})
+            .text(function(d){ return d})
+            .attr("text-anchor", "left")
+            .style("alignment-baseline", "middle")
 
-       svg.selectAll("#dot")
-           .data(worst_makes)
-           .style("fill", function(d){ return color(d)})
+        function mouseover() {
+            focus.style("opacity", 1)
+            focusText.style("opacity",1)
+        }
 
-       // Add one dot in the legend for each name.
+        function mousemove(event,datum) {
+            // recover coordinate we need
+            const pointer = d3.pointer(event, this);
+            var x0 = x.invert(pointer[0]);
+            var selected_year = yearsDomain[d3.bisectCenter(yearsDomain, x0)];
+            var yvalue = 0;
+            for (var k in datum.values){
+                if (datum.values[k].year === selected_year) {
+                    yvalue = datum.values[k]
+                    break;
+                }
+            }
+            focus.attr("cx", x(selected_year))
+                    .attr("cy", y(yvalue.casualties))
 
+            var n = yvalue.casualties.toFixed(2);
 
-       svg.selectAll("#label")
-           .data(worst_makes)
-           .style("fill", function(d){ return color(d)})
-           .text(function(d){ return d})
-           .attr("text-anchor", "left")
-           .style("alignment-baseline", "middle")
+            focusText.html(datum.name + ", " + selected_year + " - " + n)
+                        .style("left", (focus.node().getBoundingClientRect().x) + "px")
+                        .style("top", (focus.node().getBoundingClientRect().y - 28) + "px");
+        }
 
-       function mouseover() {
-           focus.style("opacity", 1)
-           focusText.style("opacity",1)
-       }
-
-       function mousemove(event,datum) {
-           // recover coordinate we need
-           const pointer = d3.pointer(event, this);
-           var x0 = x.invert(pointer[0]);
-           var selected_year = yearsDomain[d3.bisectCenter(yearsDomain, x0)];
-           var yvalue = 0;
-           for (var k in datum.values){
-               if (datum.values[k].year === selected_year) {
-                   yvalue = datum.values[k]
-                   break;
-               }
-           }
-           focus.attr("cx", x(selected_year))
-                .attr("cy", y(yvalue.casualties))
-
-           var n = yvalue.casualties.toFixed(2);
-
-           focusText.html(datum.name + ", " + selected_year + " - " + n)
-                    .style("left", (focus.node().getBoundingClientRect().x) + "px")
-                    .style("top", (focus.node().getBoundingClientRect().y - 28) + "px");
-       }
-
-       function mouseout() {
-           focus.style("opacity", 0)
-           focusText.style("opacity", 0)
-       }
-
-
+        function mouseout() {
+            focus.style("opacity", 0)
+            focusText.style("opacity", 0)
+        }
     }
 
     function updateAlluvialChart(){
@@ -3006,7 +2994,6 @@ function updateIdioms() {
             };
         });
 
-
         keys = filteredAccidentData.columns.slice(0, -1)
 
         graph = dataToGraph(filteredAccidentData,keys);
@@ -3020,71 +3007,69 @@ function updateIdioms() {
         color = d3.scaleOrdinal(["#abc4d6", "#b6abd6","#d6abb3", "#d6abd3"]).domain(["Dry","Snow","Wet or damp","Other"])
         //["#abc4d6", "#d6abb3"]
 
-
         const {nodes, links} = sankey({
             nodes: graph.nodes.map(d => Object.assign({}, d)),
             links: graph.links.map(d => Object.assign({}, d))});
 
+        g.select("#nodes_rect")
+        .selectAll("rect")
+        .data(nodes)
+        .transition()
+        .delay(1500)
+        .duration(1000)
+        .attr("x", d => d.x0)
+        .attr("y", d => d.y0)
+        .attr("height", d => d.y1 - d.y0)
+        .attr("width", d => d.x1 - d.x0)
+        .select("title")
+        .text(d => `${d.name}\n${d.value.toLocaleString()}`);
 
-            g.select("#nodes_rect")
-            .selectAll("rect")
-            .data(nodes)
-            .transition()
-            .delay(1500)
-            .duration(1000)
-            .attr("x", d => d.x0)
-            .attr("y", d => d.y0)
-            .attr("height", d => d.y1 - d.y0)
-            .attr("width", d => d.x1 - d.x0)
-            .select("title")
-            .text(d => `${d.name}\n${d.value.toLocaleString()}`);
+        g.select("#links_path")
+        .attr("fill", "none")
+        .selectAll("path")
+        .data(links)
+        .transition()
+        .delay(1500)
+        .duration(1000)
+        .attr("d", d3.sankeyLinkHorizontal())
+        .attr("stroke", d => color(d.names[0]))
+        .attr("stroke-width", d => d.width)
+        .style("mix-blend-mode", "multiply")
+        .select("title")
+        .text(d => `${d.names.join(" → ")}\n${d.value.toLocaleString()}`);
 
-            g.select("#links_path")
-            .attr("fill", "none")
-            .selectAll("path")
-            .data(links)
-            .transition()
-            .delay(1500)
-            .duration(1000)
-            .attr("d", d3.sankeyLinkHorizontal())
-            .attr("stroke", d => color(d.names[0]))
-            .attr("stroke-width", d => d.width)
-            .style("mix-blend-mode", "multiply")
-            .select("title")
-            .text(d => `${d.names.join(" → ")}\n${d.value.toLocaleString()}`);
-
-            g.select("#nodes_label")
-            .style("font", "15px sans-serif")
-            .selectAll("text")
-            .data(nodes)
-            .on("mouseover", function(event,d) {
-                // Check if not selected
-                if (!selectedAlluvialLabels.has(d.name)) {
-                    d3.select(event.target)
-                        .style("font-weight", "bold")
-                }
-            })
-            .on("mouseout", function(event, d) {
-                // Check if not selected
-                if (!selectedAlluvialLabels.has(d.name)) {
-                    d3.select(event.target)
-                        .style("font-weight", "normal");
-                }
-            })
-            .transition()
-            .delay(1500)
-            .duration(1000)
-            .attr("x", d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
-            .attr("y", d => (d.y1 + d.y0) / 2)
-            .attr("dy", "0.35em")
-            .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
-            .text(d => d.name)
-            .style("font-weight", function(d){
-                if (selectedAlluvialLabels.has(d.name))
-                    return "bold"
-                else
-                    return "normal"
-            })
+        g.select("#nodes_label")
+        .style("font", "15px sans-serif")
+        .selectAll("text")
+        .data(nodes)
+        .on("mouseover", function(event,d) {
+            // Check if not selected
+            if (!selectedAlluvialLabels.has(d.name)) {
+                d3.select(event.target)
+                    .style("font-weight", "bold")
+            }
+        })
+        .on("mouseout", function(event, d) {
+            // Check if not selected
+            if (!selectedAlluvialLabels.has(d.name)) {
+                d3.select(event.target)
+                    .style("font-weight", "normal");
+            }
+        })
+        .transition()
+        .delay(1500)
+        .duration(1000)
+        .attr("x", d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
+        .attr("y", d => (d.y1 + d.y0) / 2)
+        .attr("dy", "0.35em")
+        .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
+        .text(d => d.name)
+        .style("font-weight", function(d){
+            if (selectedAlluvialLabels.has(d.name))
+                return "bold"
+            else
+                return "normal"
+        })
             
     }
 
