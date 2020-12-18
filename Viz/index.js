@@ -3,6 +3,7 @@ let uk_data = null;
 
 let map_data = null;
 let pyramid_data = null;
+let alluvial_data = null;
 let test_data = null;
 let calendar_data = null;
 let unit_data = null;
@@ -3033,7 +3034,7 @@ function updateIdioms() {
 
         let g = svg_alluvial_chart.select("g");
 
-        let filteredAccidentData = other_data.filter(d => {
+        let filteredAccidentData = alluvial_data.filter(d => {
             return d.road_surface !== "" && !isNaN(d.road_surface) && d.road_surface!=-1
                 && d.light !== "" && !isNaN(d.light) && d.light!=-1
                 && d.weather!="" && !isNaN(d.weather) && d.weather!=-1
@@ -3223,6 +3224,7 @@ function getFilteredData() {
         map_data = currentAccidentData;
         pyramid_data = currentAccidentData;
         calendar_data = currentAccidentData;
+        alluvial_data = currentAccidentData;
         other_data = currentAccidentData;
         return;
     }
@@ -3275,6 +3277,17 @@ function getFilteredData() {
 
         return f2 && f3 && f4 && f5;
     });
+
+    alluvial_data = currentAccidentData.filter( d => {
+        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
+        let f3 = (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
+        let f4 = (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
+        
+        let f6 = (selected_month_dow.size === 0) ||
+            (yearRange() > 1 ? selected_month_dow.has(+d.date.slice(5, 7)): selected_month_dow.has(d.dow));
+
+        return f2 && f3 && f4 && f6;
+    }) 
 
     other_data = currentAccidentData.filter( d => {
         let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
