@@ -91,7 +91,7 @@ let def_i3 = {
 // Lines Chart Settings
 let def_i4 = {
     margin: {
-        top: 20,
+        top: 20 +20,
         right: 20,
         bottom: 32 + 15,
         left: 44 +15,
@@ -894,9 +894,17 @@ function gen_lines_chart() {
     .text("Number of casualties per accident");
 
     svg.append("text")
+    .attr("text-anchor", "middle")
+    .attr("font-size",20)
+    .style("font-weight", "bold")
+    .attr("y", -13)
+    .attr("x", effectiveWidth/2)
+    .text("Makes with more casualties");
+
+    svg.append("text")
     .attr("text-anchor", "end")
     .attr("x", width/2 - 20)
-    .attr("y", height - 30)
+    .attr("y", effectiveHeight+35)
     .text("Year");
 
     make.append("path")
@@ -951,7 +959,7 @@ function gen_lines_chart() {
         .attr("font-size",10)
 
     var size = 10
-    var legend_x = width - margin.right*8
+    var legend_x = width - margin.right*9
     svg.selectAll("mydots")
         .data(worst_makes)
         .enter()
