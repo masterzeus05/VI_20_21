@@ -1300,26 +1300,11 @@ function gen_lines_chart() {
         .attr('r', 2.5)
         .style("opacity", 0)
 
-    var new_g = svg.append('g')
-                    .attr('id', 'newg')
 
-    var text_back = new_g
-    .append('rect')
-    .attr("id","back_text")
-    .attr('width', 80)
-    .attr('height', 80)
-    .attr('fill', "#fffff1" )
-    .attr('stroke', "black")
-    .style("opacity", 0)
-
-
-    var focusText = new_g
-    .append('text')
-    .attr("class","focus_text")
+    var focusText = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .attr("id","focus_text")
         .style("opacity", 0)
-        .attr("text-anchor", "left")
-        .attr("alignment-baseline", "middle")
-        .attr("font-size",10)
 
     var size = 10
     var legend_x = width - margin.right*9
@@ -1369,33 +1354,15 @@ function gen_lines_chart() {
 
         var n = yvalue.casualties.toFixed(2);
 
-        focusText.html("x:" + selected_year + "  -  " + "y:" + n + " - " + datum.name)
-
-        let margin;
-        if (x(selected_year) > 160){
-            margin = - d3.selectAll('.focus_text').node().getBoundingClientRect().width - 15
-        }
-        else{
-            margin = 15
-        }
-
-        focusText.attr("x", x(selected_year)+margin)
-                 .attr("y", y(yvalue.casualties))
-
-        text_back
-        .attr('width', d3.selectAll('.focus_text').node().getBoundingClientRect().width+2)
-        .attr('height', d3.selectAll('.focus_text').node().getBoundingClientRect().height+2)
-        .attr("x", parseInt(d3.selectAll('.focus_text').node().getAttribute("x"))-1)
-        .attr("y", parseInt(d3.selectAll('.focus_text').node().getAttribute("y")) -7)
-        .style("opacity", 1)
-
+        focusText.html(datum.name + ", " + selected_year + " - " + n)
+        .style("left", (focus.node().getBoundingClientRect().x) + "px")
+        .style("top", (focus.node().getBoundingClientRect().y - 28) + "px");
 
     }
 
     function mouseout() {
         focus.style("opacity", 0)
         focusText.style("opacity", 0)
-        text_back.style("opacity", 0)
     }
 }
 
@@ -2948,13 +2915,7 @@ function updateIdioms() {
 
        var focus = svg.select("#focus")
 
-       var new_g = svg.select('#newg')
-
-       var text_back = new_g
-       .select('#back_text')
-
-
-       var focusText = new_g.select(".focus_text")
+       var focusText = d3.select("#focus_text")
 
        svg.selectAll("#dot")
            .data(worst_makes)
@@ -2992,33 +2953,14 @@ function updateIdioms() {
 
            var n = yvalue.casualties.toFixed(2);
 
-           focusText.html("x:" + selected_year + "  -  " + "y:" + n + " - " + datum.name)
-
-           let margin;
-           if (x(selected_year) > 160){
-               margin = - d3.selectAll('.focus_text').node().getBoundingClientRect().width - 15
-           }
-           else{
-               margin = 15
-           }
-
-           focusText.attr("x", x(selected_year)+margin)
-                    .attr("y", y(yvalue.casualties))
-
-           text_back
-           .attr('width', d3.selectAll('.focus_text').node().getBoundingClientRect().width+2)
-           .attr('height', d3.selectAll('.focus_text').node().getBoundingClientRect().height+2)
-           .attr("x", parseInt(d3.selectAll('.focus_text').node().getAttribute("x"))-1)
-           .attr("y", parseInt(d3.selectAll('.focus_text').node().getAttribute("y")) -7)
-           .style("opacity", 1)
-
-
+           focusText.html(datum.name + ", " + selected_year + " - " + n)
+                    .style("left", (focus.node().getBoundingClientRect().x) + "px")
+                    .style("top", (focus.node().getBoundingClientRect().y - 28) + "px");
        }
 
        function mouseout() {
            focus.style("opacity", 0)
            focusText.style("opacity", 0)
-           text_back.style("opacity", 0)
        }
 
 
