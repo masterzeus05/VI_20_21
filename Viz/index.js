@@ -4,6 +4,8 @@ let uk_data = null;
 let map_data = null;
 let pyramid_data = null;
 let test_data = null;
+let calendar_data = null;
+let radar_data = null;
 let unit_data = null;
 let other_data = null;
 
@@ -11,6 +13,8 @@ let svg_choropleth_map;
 let svg_pyramid_bar_chart = null;
 let svg_alluvial_chart = null;
 
+let svg_calendar_heatmap = null;
+let svg_radar_chart = null;
 let svg_unit_chart = null;
 
 let selectedCounties = new Set();
@@ -42,6 +46,22 @@ let timeBetweenCarTransitions = 15000; // ms
 let carScaleSize = 25;
 let roadOptionSize = 30;
 let roadOptionPadding = 5;
+
+
+const ticksDoW = [1,2,3,4,5,6,7]
+const daysOfWeek = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
+
+const ticksDays = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+    18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+
+const ticksWeekN = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+    18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+    41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54]
+
+const hours = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+
+const ticksMonth = [1,2,3,4,5,6,7,8,9,10,11,12]
+const months = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"]
 
 // Choropleth Map Chart Settings
 let def_i1 = {
@@ -91,14 +111,32 @@ let def_i3 = {
 // Lines Chart Settings
 let def_i4 = {
     margin: {
-        top: 20 +20,
+        top: 40,
         right: 20,
-        bottom: 32 + 15,
-        left: 44 +15,
+        bottom: 47,
+        left: 59,
         middle: 24
     },
     width: 550,
     height: 400
+}
+
+// Calendar Heatmap Chart Settings
+let def_i5 = {
+    padding: 30,
+    width: 500,
+    height: 500,
+    legendWidth: 200,
+    legendHeight: 50
+}
+
+let def_i6 = {
+    width: 500,
+    height: 300,
+    padding: 10,
+    levels: 3,
+    opacity: 0.1,
+    labelFactor: 1.1
 }
 
 // Unit Chart Settings
@@ -126,16 +164,16 @@ function getData() {
             age: +d.Age_Band_of_Driver,
             county: d.county,
             // Index: d.Index,
-            // Day_of_Week: +d.Day_of_Week,
             light: +d.Light_Conditions,
+            dow: +d.Day_of_Week,
             number_of_casualties: +d.Number_of_Casualties,
             // Number_of_Vehicles: +d.Number_of_Vehicles,
             road_surface: +d.Road_Surface_Conditions,
             // Road_Type: +d.Road_Type,
             sex: +d.Sex_of_Driver,
             speed_limit: +d.Speed_limit,
-            // Time: d.Time,
-            // Timestamp: new Date(d.Date + ' ' + d.Time),
+            time: d.Time,
+            date: d.Date,
             area: +d.Urban_or_Rural_Area,
             // Vehicle_Type: +d.Vehicle_Type,
             vehicle_year: +d.Vehicle_Year,
@@ -149,8 +187,8 @@ function getData() {
         }
         test_data = d3.rollup(data, v => v.length,
             d => d.year, d => d.sex, d => d.age, d => d.county, d => d.casualties,
-            d => d.vehicle_Year, d => d.make)
-        test_data = unroll(test_data, ['year','sex','age','county','number_of_casualties','vehicle_year','make']);
+            d => d.vehicle_Year, d => d.make, d => d.dow, d => d.date, d => d.time)
+        test_data = unroll(test_data, ['year','sex','age','county','number_of_casualties','vehicle_year','make', 'dow', 'date', 'time']);
 
         accident_data = data;
         currentAccidentData = data;
@@ -170,10 +208,12 @@ function processData() {
     // Idioms
     gen_choropleth_map();
     gen_pyramid_bar_chart();
-    gen_unit_chart();
     gen_lines_chart();
     gen_alluvial_chart();
 
+    gen_calendar_heatmap();
+    gen_radial_chart();
+    gen_unit_chart();
     // Year slider
     gen_year_slider();
 
@@ -309,7 +349,7 @@ function gen_choropleth_map() {
     //Define legend axis
     let legendAxis = d3.axisRight()
         .ticks(4)
-        .tickFormat(d3.format(".0s"))
+        .tickFormat(d3.format(".2s"))
         .scale(countScale);
 
     //Set up legend axis
@@ -361,6 +401,316 @@ function gen_choropleth_map() {
             }
         });
 
+}
+
+//Generate radial chart
+function gen_radial_chart() {
+    let width = def_i6.width,
+        height = def_i6.height,
+        padding = def_i6.padding;
+
+    let dataset = d3.group(currentAccidentData, d => d.time.slice(0, 2));
+    let keys = Array.from(dataset.keys());
+
+    dataset = new Map([...dataset.entries()].sort());
+
+    let max = d3.max(keys, d => dataset.get(d).length);
+
+    let datasetO = new Map(dataset);
+    let datasetAM = new Map(dataset);
+    let datasetPM = new Map(dataset);
+
+    for (let k of datasetAM.keys()) {
+        if (!(k >= 6 && k <= 20))
+            datasetAM.delete(k);
+    }
+    for (let k of datasetPM.keys()) {
+        if (!(k > 17 || k < 9))
+            datasetPM.delete(k);
+    }
+
+    let datasetPM1st = new Map(datasetPM);
+    let datasetPM2nd = new Map(datasetPM);
+
+    for (let k of datasetPM1st.keys()) {
+        if (k < 18)
+            datasetPM1st.delete(k);
+    }
+    for (let k of datasetPM2nd.keys()) {
+        if (k > 8)
+            datasetPM2nd.delete(k);
+    }
+
+    datasetPM = new Map([...datasetPM1st].concat([...datasetPM2nd]));
+
+    dataset = [datasetAM, datasetPM];
+
+    let radius = (height / 2 - padding * 4);
+
+    let rScale = d3.scaleLinear()
+        .range([0, radius])
+        .domain([0, max]);
+
+    svg_radar_chart = d3.select('#radial_chart')
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height)
+        .attr("class", "svg_group");
+
+    let Format = d3.format('.3s');
+    let angleSlice = Math.PI / 6;
+
+    let g = svg_radar_chart.append('g')
+        .attr('transform', 'translate(' +  (width/2 + padding * 6) + ',' + (height/2) +')');
+
+    let axisGrid = g.append('g')
+        .attr('class', 'axisWrapper');
+
+    axisGrid.selectAll('.levels')
+        .data(d3.range(1, (def_i6.levels + 1)).reverse())
+        .enter()
+        .append('circle')
+        .attr('class', 'gridCircle')
+        .attr('r', d => radius/def_i6.levels * d)
+        .style("fill", "#CDCDCD")
+        .style("stroke", "#CDCDCD")
+        .style("fill-opacity", def_i6.opacity);
+
+    axisGrid.selectAll("#axisLabel")
+        .data(d3.range(1,(def_i6.levels+1)).reverse())
+        .enter()
+        .append("text")
+        .attr("id", "axisLabel")
+        .attr("x", d => d * radius / def_i6.levels + def_i6.labelFactor)
+        .attr("y", 0)
+        .attr("dy", "0.4em")
+        .style("font-size", "10px")
+        .attr("fill", "#737373")
+        .text(d =>Format(max * d/def_i6.levels));
+
+    let axis = axisGrid.selectAll(".axis")
+        .data(hours)
+        .enter()
+        .append("g")
+        .attr("class", "axis");
+
+    //Append the lines
+    axis.append("line")
+        .attr("x1", 0)
+        .attr("y1", 0)
+        .attr("x2", (d,i) => rScale(max * def_i6.labelFactor) * Math.cos(angleSlice*i - Math.PI/2))
+        .attr("y2", (d, i) => rScale(max * def_i6.labelFactor) * Math.sin(angleSlice*i - Math.PI/2))
+        .attr("class", "line")
+        .style("stroke", "white")
+        .style("stroke-width", d => (d==3)?'0px':"2px");
+
+    //Append the labels at each axis
+    axis.append("text")
+        .attr("class", "legend")
+        .style("font-size", "11px")
+        .attr("text-anchor", "middle")
+        .attr("dy", "0.35em")
+        .attr("x", (d, i) => rScale(max * def_i6.labelFactor) * Math.cos(angleSlice*i - Math.PI/2))
+        .attr("y", (d, i) => rScale(max * def_i6.labelFactor) * Math.sin(angleSlice*i - Math.PI/2))
+        .text(d => (d==0 || d==3)?'':d);
+
+    let angles = d3.scaleLinear()
+        .domain([0, 12])
+        .range([0, 2 * Math.PI]);
+
+    let radarLine = d3.lineRadial()
+        .angle((d) => angles(+d[0]))
+        .radius(d => rScale(d[1].length))
+        .curve(d3.curveCardinalOpen);
+
+    let blobWrapper = g.selectAll(".radarWrapper")
+        .data(dataset)
+        .enter()
+        .append("g")
+        .attr("class", "radarWrapper");
+
+    blobWrapper.append("path")
+        .attr("id", "radarStroke")
+        .attr("d", radarLine)
+        .style("stroke-width", 2 + "px")
+        .style("stroke", (d, i) => (i===0)? "#af7070" : "#44849a")
+        .style("fill", "none");
+
+    blobWrapper.selectAll("#radarCircle")
+        .data(datasetO)
+        .enter()
+        .append("circle")
+        .attr("id", "radarCircle")
+        .attr("r", 3)
+        .attr("cx", (d) => rScale(d[1].length) * Math.cos(angles(+d[0]%12) - Math.PI/2))
+        .attr("cy", (d) => rScale(d[1].length) * Math.sin(angles(+d[0]%12) - Math.PI/2))
+        .style("fill", (d) => (+d[0] >= 7 && +d[0] <= 19)? "#ac5454" : "#2e657d")
+        .style("fill-opacity", 0.8)
+        .append('title')
+        .text(d => d[1].length);
+
+    let legendG = svg_radar_chart.append('g')
+        .attr('class', 'legend');
+
+    legendG.append('circle')
+        .attr('cx', 3 * padding)
+        .attr('cy', padding)
+        .attr('transform', translation(padding, height - 8*padding))
+        .attr('r', 7)
+        .style('fill', "#ac5454");
+
+    legendG.append('text')
+        .attr('x', 6 * padding)
+        .attr('y', height - 6.5*padding)
+        .style('fill', '#575757')
+        .style("font-size", "16px")
+        .text('AM');
+
+    legendG.append('circle')
+        .attr('cx', 3 * padding)
+        .attr('cy', padding)
+        .attr('transform', translation(padding, height - 5*padding))
+        .attr('r', 7)
+        .style('fill', "#2e657d");
+
+    legendG.append('text')
+        .attr('x', 6 * padding)
+        .attr('y', height - 3.5*padding)
+        .style('fill', '#575757')
+        .style("font-size", "16px")
+        .text('PM');
+}
+
+
+//Generate calendar heatmap
+function  gen_calendar_heatmap() {
+    let width = def_i5.width,
+        height = def_i5.height,
+        padding = def_i5.padding;
+
+    let dataset = d3.rollup(currentAccidentData, v => v.length, d=> d.year, d=>d.date.slice(5));
+    dataset = unroll(dataset, ['year', 'date', 'value']);
+    dataset = d3.rollup(dataset, v=>d3.mean(v, v=> v.value), d=> d.date);
+
+    let min = d3.min(dataset, d => d[1]),
+        max = d3.max(dataset, d => d[1]);
+
+    let colors = d3.scaleLinear()
+        .domain([min, max])
+        .range(["#8ecefd","#f88b9d"]);
+
+    let monthScale = d3.scaleBand()
+        .domain(ticksMonth)
+        .range([padding, width - padding])
+
+    let xAxis = d3.axisTop()
+        .scale(monthScale)
+        .tickValues(ticksMonth)
+        .tickFormat((d, i) => months[i]);
+
+    let dayScale = d3.scaleBand()
+        .domain(ticksDays)
+        .range([padding, height - padding * 2]);
+
+    let yAxis = d3.axisLeft()
+        .scale(dayScale);
+
+    svg_calendar_heatmap = d3.select("#calendar_heatmap")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("class", "svg_group");
+
+    let g = svg_calendar_heatmap.append("g")
+        .attr("class", "svg_group");
+
+    g.append("g")
+        .attr("id", "xAxis")
+        .call(xAxis)
+        .attr("transform", translation(0,padding))
+        .selectAll("text")
+        .attr("color", "black")
+        .attr("font-size", "12");
+
+    g.append("g")
+        .attr("id", "yAxis")
+        .call(yAxis)
+        .attr("transform", translation(padding,0))
+        .selectAll("text")
+        .attr("color", "black")
+        .attr("font-size", "11");
+
+    let rects = g.append("g")
+        .attr("class", "rects");
+
+    rects.selectAll("rect")
+        .data(dataset)
+        .join("rect")
+        .attr("class", ".rects")
+        .attr("width", monthScale.bandwidth())
+        .attr("height", dayScale.bandwidth())
+        .attr("x", d => monthScale(getMonth(d[0])))
+        .attr("y", d => dayScale(getDay(d[0])))
+        .attr("fill", d => colors(d[1]))
+        .append("title")
+        .text(d => d);
+
+    let legend_g = svg_calendar_heatmap
+        .append('g')
+        .attr('id', 'legend-svg-calendar')
+        .attr('width', def_i5.legendWidth)
+        .attr('height', def_i5.legendHeight)
+        .attr('transform', translation(-padding, height - padding));
+
+    let countScale = d3.scaleLinear()
+        .domain([min, max])
+        .range([0, def_i5.legendWidth])
+
+    //Calculate the variables for the temp gradient
+    let numStops = 4;
+    let countRange = countScale.domain();
+    countRange[2] = countRange[1] - countRange[0];
+    let countPoint = [];
+    for(let i = 0; i < numStops; i++) {
+        countPoint.push(i * countRange[2]/(numStops-1) + countRange[0]);
+    }
+
+    //Create the gradient
+    legend_g.append("defs")
+        .append("linearGradient")
+        .attr("id", "legend-map-calendar")
+        .attr("y1", "0%").attr("x1", "0%")
+        .attr("y2", "0%").attr("x2", "100%")
+        .selectAll("stop")
+        .data(d3.range(numStops))
+        .enter()
+        .append("stop")
+        .attr("offset", function(d,i) {
+            return countScale( countPoint[i] )/ def_i5.legendWidth;
+        })
+        .attr("stop-color", function(d,i) {
+            return colors( countPoint[i] );
+        });
+
+    legend_g.append("rect")
+        .attr("id", "legendRectHeatmap")
+        .attr("x", width/2 - def_i5.legendWidth/2 + padding)
+        .attr("y", 0)
+        .attr("width", def_i5.legendWidth)
+        .attr("height", 10)
+        .style("fill", "url(#legend-map-calendar)");
+
+    //Define legend axis
+    let legendAxis = d3.axisTop()
+        .ticks(4)
+        .tickFormat(d3.format(".0s"))
+        .scale(countScale);
+
+    //Set up legend axis
+    legend_g.append("g")
+        .attr("id", "legend-axis-heatmap")
+        .attr("transform", translation(width/2 - def_i5.legendWidth/2 + padding, 0))
+        .call(legendAxis);
 }
 
 // Generate pyramid bar chart
@@ -710,7 +1060,7 @@ function gen_alluvial_chart() {
                         "weather": "Weather",
                         "wind": "Wind"
                         }
-                
+
         svg_alluvial_chart.append("text")
         .attr("text-anchor", "begin")
         .attr("x", margin.left)
@@ -1432,7 +1782,7 @@ function preparePyramidEvent() {
             d3.select(event.target)
                 .style("stroke", "black")
                 .style("stroke-width", "0.5");
-            
+
             if (selectedPyramidSex.has(sex)){
                 if (sex === "1"){
                     svg_pyramid_bar_chart.select(".left-bar")
@@ -1444,7 +1794,7 @@ function preparePyramidEvent() {
                                          .select("#femaleLabel")
                                          .style("font-weight", "normal");
                 }
-                                    
+
                 selectedPyramidSex.delete(sex);
             }
         }
@@ -1482,7 +1832,7 @@ function preparePyramidEvent() {
     });
 
     function sexLabelEvent(sex, event){
-        
+
         // Check if already selected
         if (selectedPyramidSex.has(sex)) {
 
@@ -1495,7 +1845,7 @@ function preparePyramidEvent() {
             Object.keys(isDirty).map(function(key, index) {
                 if (key !== "2") isDirty[key] = true;
             });
-            
+
             let bar = (sex=="1")? ".left-bar" : ".right-bar";
             // Change stroke to unselected
             svg_pyramid_bar_chart.select(bar).selectAll("rect")
@@ -1506,7 +1856,7 @@ function preparePyramidEvent() {
                     let selectedBar = d3.select(this).datum()[0] + "|" + sex;
                     selectedPyramidBars.delete(selectedBar);
                 })
-            
+
         }
         else {
 
@@ -1897,6 +2247,280 @@ function updateIdioms() {
 
     }
 
+    function update_calendar_heatmap() {
+        function updateHeatmapLegend(min, max, colors) {
+            let countScale = d3.scaleLinear()
+                .domain([min, max])
+                .range([0, def_i5.legendWidth])
+
+            //Calculate the variables for the temp gradient
+            let numStops = 4;
+
+            let countRange = countScale.domain();
+            countRange[2] = countRange[1] - countRange[0];
+            let countPoint = [];
+            for(let i = 0; i < numStops; i++) {
+                countPoint.push(i * countRange[2]/(numStops-1) + countRange[0]);
+            }
+
+            d3.select("#legend-map-calendar")
+                .attr("y1", "0%").attr("x1", "0%")
+                .attr("y2", "0%").attr("x2", "100%")
+                .selectAll("stop")
+                .data(d3.range(numStops))
+                .enter()
+                .join("stop")
+                .attr("offset", function(d,i) {
+                    return countScale( countPoint[i] )/ def_i5.legendWidth;
+                })
+                .attr("stop-color", function(d,i) {
+                    return colors( countPoint[i] );
+                });
+
+            d3.select("#legendRectHeatmap")
+                .style("fill", "url(#legend-map-calendar)");
+
+            //Define legend axis
+            let legendAxis = d3.axisTop()
+                .ticks(4)
+                .tickFormat(d3.format("0.2s"))
+                .scale(countScale);
+
+            //Set up legend axis
+            d3.select("#legend-axis-heatmap")
+                .transition()
+                .delay(1000)
+                .duration(1000)
+                .call(legendAxis);
+        }
+
+        let width = def_i5.width,
+            height = def_i5.height,
+            padding = def_i5.padding;
+
+        let x_scale = null,
+            y_scale = null,
+            y_domain,
+            x_function = null,
+            y_function = null,
+            values,
+            format_function = null,
+            dataset,
+            min,
+            max,
+            valueOf = null,
+            title = null;
+
+        let years = new Array(0);
+
+        calendar_data.forEach(d => {
+            if(!years.includes(d.year)) {
+                years.push(d.year);
+            }
+        });
+
+        if(isOneYear(years)) {
+            dataset = d3.rollup(calendar_data, v => v.length, d=>d.date, d=> d.dow);
+            dataset = unroll(dataset, ['date', 'dow', 'value']);
+            global = dataset;
+            x_scale = d3.scaleBand()
+                .domain(ticksDoW)
+                .range([padding, width - padding]);
+
+            y_scale = d3.scaleBand()
+                .domain(ticksWeekN)
+                .range([padding, height - padding * 2]);
+
+            y_domain = y_scale.domain().filter((d,i) => !(i%5));
+
+            x_function = d => d.dow;
+            y_function = d => getWeekNumber(d.date);
+
+            values = ticksMonth;
+            format_function = i => daysOfWeek[i];
+
+            min = d3.min(dataset, d => d.value);
+            max = d3.max(dataset, d => d.value);
+
+            valueOf = d => d.value;
+            title = d => d.date.slice(5) + ', ' + d.value;
+        }
+        else{
+            dataset = d3.rollup(calendar_data, v => v.length, d=> d.year, d=>d.date.slice(5));
+            dataset = unroll(dataset, ['year', 'date', 'value']);
+            dataset = d3.rollup(dataset, v=>d3.mean(v, v=> v.value), d=> d.date);
+
+            x_scale = d3.scaleBand()
+                .domain(ticksMonth)
+                .range([padding, width - padding])
+
+            y_scale = d3.scaleBand()
+                .domain(ticksDays)
+                .range([padding, height - padding * 2]);
+
+            y_domain = y_scale.domain();
+
+            x_function = d => getMonth(d[0]);
+            y_function = d => getDay(d[0]);
+
+            values = ticksDays;
+            format_function = i => months[i];
+
+            min = d3.min(dataset, d => d[1]);
+            max = d3.max(dataset, d => d[1]);
+
+            valueOf = d => d[1];
+            title = d => d;
+        }
+
+        let colors = d3.scaleLinear()
+            .domain([min, max])
+            .range(["#8ecefd","#f88b9d"]);
+
+        let xAxis = d3.axisTop()
+            .scale(x_scale)
+            .tickValues(values)
+            .tickFormat((d, i) => format_function(i));
+
+        let yAxis = d3.axisLeft()
+            .scale(y_scale)
+            .tickValues(y_domain);
+
+        svg_calendar_heatmap.select(".rects")
+            .selectAll("rect")
+            .data(dataset)
+            .join("rect")
+            .attr("class", ".rects")
+            .attr("width", x_scale.bandwidth())
+            .attr("height", y_scale.bandwidth())
+            .transition()
+            .delay(300)
+            .duration(1000)
+            .attr("x", d => x_scale(x_function(d)))
+            .attr("y", d => y_scale(y_function(d)))
+            .attr("fill", d => colors(valueOf(d)))
+            .select("title")
+            .text(d => title(d));
+
+        svg_calendar_heatmap.select("#xAxis")
+            .call(xAxis)
+            .attr("transform", translation(0, padding))
+            .selectAll("text")
+            .attr("color", "black")
+            .attr("font-size", "12");
+
+        svg_calendar_heatmap.select("#yAxis")
+            .call(yAxis)
+            .attr("transform", translation(padding, 0))
+            .selectAll("text")
+            .attr("color", "black")
+            .attr("font-size", "12");
+
+        updateHeatmapLegend(min, max, colors);
+    }
+
+    function update_radar_chart() {
+        let width = def_i6.width,
+            height = def_i6.height,
+            padding = def_i6.padding;
+
+
+
+        let dataset = d3.group(radar_data, d => d.time.slice(0, 2));
+
+        for(let i = 0; i<24; i++) {
+            let formattedNumber = ('0' + i).slice(-2);
+            if(!dataset.has(formattedNumber)) {
+                dataset.set(formattedNumber, new Array(0));
+            }
+        }
+
+        let keys = Array.from(dataset.keys());
+
+        dataset = new Map([...dataset.entries()].sort());
+
+        let max = d3.max(keys, d => dataset.get(d).length);
+
+        let datasetO = new Map(dataset);
+        let datasetAM = new Map(dataset);
+        let datasetPM = new Map(dataset);
+
+        for (let k of datasetAM.keys()) {
+            if (!(k >= 6 && k <= 20))
+                datasetAM.delete(k);
+        }
+        for (let k of datasetPM.keys()) {
+            if (!(k > 17 || k < 9))
+                datasetPM.delete(k);
+        }
+
+        let datasetPM1st = new Map(datasetPM);
+        let datasetPM2nd = new Map(datasetPM);
+
+        for (let k of datasetPM1st.keys()) {
+            if (k < 18)
+                datasetPM1st.delete(k);
+        }
+        for (let k of datasetPM2nd.keys()) {
+            if (k > 8)
+                datasetPM2nd.delete(k);
+        }
+
+        datasetPM = new Map([...datasetPM1st].concat([...datasetPM2nd]));
+
+        dataset = [datasetAM, datasetPM];
+
+        let radius = (height / 2 - padding * 4);
+
+        let rScale = d3.scaleLinear()
+            .range([0, radius])
+            .domain([0, max]);
+
+        let Format = d3.format('.3s');
+        let angleSlice = Math.PI / 6;
+
+        d3.selectAll("#axisLabel")
+            .data(d3.range(1,(def_i6.levels+1)).reverse())
+            .join('text')
+            .transition()
+            .delay(300)
+            .duration(1000)
+            .attr("x", d => d * radius / def_i6.levels + def_i6.labelFactor)
+            .attr("y", 0)
+            .attr("dy", "0.4em")
+            .style("font-size", "10px")
+            .attr("fill", "#737373")
+            .text(d =>Format(max * d/def_i6.levels));
+
+        let angles = d3.scaleLinear()
+            .domain([0, 12])
+            .range([0, 2 * Math.PI]);
+
+        let radarLine = d3.lineRadial()
+            .angle((d) => angles(+d[0]))
+            .radius(d => rScale(d[1].length))
+            .curve(d3.curveCardinalOpen);
+
+        d3.selectAll("#radarStroke")
+            .data(dataset)
+            .join('path')
+            .attr("d", radarLine)
+            .style("stroke-width", 2 + "px")
+            .style("stroke", (d, i) => (i===0)? "#af7070" : "#44849a")
+            .style("fill", "none");
+
+        d3.selectAll("#radarCircle")
+            .data(datasetO)
+            .join('circle')
+            .attr("r", 3)
+            .attr("cx", (d) => rScale(d[1].length) * Math.cos(angles(+d[0]%12) - Math.PI/2))
+            .attr("cy", (d) => rScale(d[1].length) * Math.sin(angles(+d[0]%12) - Math.PI/2))
+            .style("fill", (d) => (+d[0] >= 7 && +d[0] <= 19)? "#ac5454" : "#2e657d")
+            .style("fill-opacity", 0.8)
+            .select('title')
+            .text(d => d[1].length);
+    }
+
     function updateUnitChart() {
         // Get sizes
         let margin = def_i7.margin;
@@ -2104,12 +2728,12 @@ function updateIdioms() {
                 yearsTicks.push(i);
             j++;
         }
-        yearsTicks[0] = min_Vehicle_Year 
-        yearsTicks[yearsTicks.length-1] = max_Vehicle_Year 
+        yearsTicks[0] = min_Vehicle_Year
+        yearsTicks[yearsTicks.length-1] = max_Vehicle_Year
 
         var yearsDomain=[];
         for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
-            yearsDomain.push(i);  
+            yearsDomain.push(i);
         }
 
         var x = d3.scaleLinear()
@@ -2156,7 +2780,7 @@ function updateIdioms() {
         .style("stroke", function(d) {
             return color(d.name);
         })
-        
+
 
 
     svg.select("#xAxis")
@@ -2168,21 +2792,21 @@ function updateIdioms() {
     svg.select("#yAxis")
        .call(d3.axisLeft(y));
 
-    
+
        var focus = svg.select("#focus")
-   
+
        var new_g = svg.select('#newg')
-   
+
        var text_back = new_g
        .select('#back_text')
-   
-   
+
+
        var focusText = new_g.select(".focus_text")
 
        svg.selectAll("#dot")
            .data(worst_makes)
            .style("fill", function(d){ return color(d)})
-   
+
        // Add one dot in the legend for each name.
 
 
@@ -2192,12 +2816,12 @@ function updateIdioms() {
            .text(function(d){ return d})
            .attr("text-anchor", "left")
            .style("alignment-baseline", "middle")
-   
+
        function mouseover() {
            focus.style("opacity", 1)
            focusText.style("opacity",1)
        }
-   
+
        function mousemove(event,datum) {
            // recover coordinate we need
            const pointer = d3.pointer(event, this);
@@ -2212,11 +2836,11 @@ function updateIdioms() {
            }
            focus.attr("cx", x(selected_year))
                 .attr("cy", y(yvalue.casualties))
-   
+
            var n = yvalue.casualties.toFixed(2);
-   
+
            focusText.html("x:" + selected_year + "  -  " + "y:" + n + " - " + datum.name)
-   
+
            let margin;
            if (x(selected_year) > 160){
                margin = - d3.selectAll('.focus_text').node().getBoundingClientRect().width - 15
@@ -2224,27 +2848,27 @@ function updateIdioms() {
            else{
                margin = 15
            }
-   
+
            focusText.attr("x", x(selected_year)+margin)
                     .attr("y", y(yvalue.casualties))
-   
+
            text_back
            .attr('width', d3.selectAll('.focus_text').node().getBoundingClientRect().width+2)
            .attr('height', d3.selectAll('.focus_text').node().getBoundingClientRect().height+2)
            .attr("x", parseInt(d3.selectAll('.focus_text').node().getAttribute("x"))-1)
            .attr("y", parseInt(d3.selectAll('.focus_text').node().getAttribute("y")) -7)
            .style("opacity", 1)
-   
-   
+
+
        }
-   
+
        function mouseout() {
            focus.style("opacity", 0)
            focusText.style("opacity", 0)
            text_back.style("opacity", 0)
        }
 
-    
+
     }
 
     function updateAlluvialChart(){
@@ -2300,7 +2924,7 @@ function updateIdioms() {
         .extent([[0, 5], [effectiveWidth, effectiveHeight]])
         color = d3.scaleOrdinal(["#abc4d6", "#b6abd6","#d6abb3", "#d6abd3"]).domain(["Dry","Snow","Wet or damp","Other"])
         //["#abc4d6", "#d6abb3"]
-        
+
 
         const {nodes, links} = sankey({
             nodes: graph.nodes.map(d => Object.assign({}, d)),
@@ -2347,60 +2971,76 @@ function updateIdioms() {
             .attr("dy", "0.35em")
             .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
             .text(d => d.name)
-        }
+    }
 
-        let count = 0;
-        let maxCount = 5;
+    let count = 0;
+    let maxCount = 7;
 
-        function updateDirty() {
-            if (count !== maxCount) return;
-            setDirty(false);
-        }
+    function updateDirty() {
+        if (count !== maxCount) return;
+        setDirty(false);
+    }
+
+    new Promise(function(resolve, reject) {
+        getFilteredData();
+        resolve();
+    }).then(function(val) {
+        new Promise(function(resolve, reject) {
+            if (isDirty["1"])  update_choropleth_map();
+            resolve();
+        }).then( r => {
+            count++;
+            updateDirty();
+        });
 
         new Promise(function(resolve, reject) {
-            getFilteredData();
+            if (isDirty["2"])  updatePyramidBarChart();
             resolve();
-        }).then(function(val) {
-            new Promise(function(resolve, reject) {
-                if (isDirty["1"])  update_choropleth_map();
-                resolve();
-            }).then( r => {
-                count++;
-                updateDirty();
-            });
-
-            new Promise(function(resolve, reject) {
-                if (isDirty["2"])  updatePyramidBarChart();
-                resolve();
-            }).then( r => {
-                count++;
-                updateDirty();
-            });
-
-            new Promise(function(resolve, reject) {
-                if (isDirty["3"])  updateAlluvialChart();
-                resolve();
-            }).then( r => {
-                count++;
-                updateDirty();
-            });
-
-            new Promise(function(resolve, reject) {
-                if (isDirty["4"])  updateLineChart();
-                resolve();
-            }).then( r => {
-                count++;
-                updateDirty();
-            });
-
-            new Promise(function(resolve, reject) {
-                if (isDirty["7"])  updateUnitChart();
-                resolve();
-            }).then( r => {
-                count++;
-                updateDirty();
-            });
+        }).then( r => {
+            count++;
+            updateDirty();
         });
+
+        new Promise(function(resolve, reject) {
+            if (isDirty["3"])  updateAlluvialChart();
+            resolve();
+        }).then( r => {
+            count++;
+            updateDirty();
+        });
+
+        new Promise(function(resolve, reject) {
+            if (isDirty["4"])  updateLineChart();
+            resolve();
+        }).then( r => {
+            count++;
+            updateDirty();
+        });
+
+        new Promise(function(resolve, reject) {
+            if (isDirty["5"])  update_radar_chart();
+            resolve();
+        }).then( r => {
+            count++;
+            updateDirty();
+        });
+
+        new Promise(function(resolve, reject) {
+            if (isDirty["6"])  update_calendar_heatmap();
+            resolve();
+        }).then( r => {
+            count++;
+            updateDirty();
+        });
+
+        new Promise(function(resolve, reject) {
+            if (isDirty["7"])  updateUnitChart();
+            resolve();
+        }).then( r => {
+            count++;
+            updateDirty();
+        });
+    });
 }
 
 // Update data according to filters
@@ -2412,6 +3052,8 @@ function getFilteredData() {
         currentAccidentData = accident_data;
         map_data = currentAccidentData;
         pyramid_data = currentAccidentData;
+        calendar_data = currentAccidentData;
+        radar_data = currentAccidentData;
         other_data = currentAccidentData;
         return;
     }
@@ -2437,6 +3079,18 @@ function getFilteredData() {
 
         return f2;
     })
+
+    radar_data = map_data.filter(d => {
+        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
+
+        return f2;
+    });
+
+    calendar_data = map_data.filter(d => {
+        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
+
+        return f2;
+    });
 
     other_data = accident_data.filter( d => {
         let f1 = d.year >= selectedMinYear && d.year <= selectedMaxYear;
@@ -2508,6 +3162,55 @@ function barToString(event,datum){
     }
 
     return age_band + "|" + sex;
+}
+
+function getWeekNumber(arg) {
+    let date = new Date(arg);
+    let yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+    let firstWeekDay = yearStart.getUTCDay();
+    let diff = (date - yearStart) / 86400000;
+
+    return Math.ceil((diff + firstWeekDay + 1) / 7);
+}
+
+function isOneYear(keys) {
+    if (keys == null) {
+        return false;
+    }
+
+    let currentYear = keys[0];
+    let different = keys.some(function (k) {
+        if(k !== currentYear) {
+            return true;
+        }
+    });
+
+    return !different;
+}
+
+function getYear(arg) {
+    let d = new Date(arg);
+    return d.getUTCFullYear();
+}
+
+function getMonth(arg) {
+    return parseInt(arg.slice(0,3));
+}
+
+function getDay(arg) {
+    return parseInt(arg.slice(3));
+}
+
+function leapYearsBetween(start, end) {
+    return leapYearsBefore(end) - leapYearsBefore(start);
+}
+
+function leapYearsBefore(year) {
+    return Math.floor(year/4) - Math.floor(year/100) + Math.floor(year/400)
+}
+
+function yearRange() {
+    return selectedMaxYear - selectedMinYear;
 }
 
 function setDirty(value) {
