@@ -29,7 +29,7 @@ let speedLimits = [];
 
 let yearSlider;
 
-let dispatch = d3.dispatch("countyEvent", "pyramidEvent", "unitEvent","alluvialEvent","pyramidMaleEvent","pyramidFemaleEvent");
+let dispatch = d3.dispatch("countyEvent", "pyramidEvent", "unitEvent","pyramidMaleEvent","pyramidFemaleEvent");
 
 // Car and speed limit signs options
 let carNumber = 40;
@@ -661,7 +661,6 @@ function gen_alluvial_chart() {
         nodes: graph.nodes.map(d => Object.assign({}, d)),
         links: graph.links.map(d => Object.assign({}, d))});
 
-        console.log(nodes)
         g.append("g")
         .attr('id', 'nodes_rect')
         .selectAll("rect")
@@ -711,29 +710,7 @@ function gen_alluvial_chart() {
                         "weather": "Weather",
                         "wind": "Wind"
                         }
-
-        var alluvial_filters_map = {
-            'Daylight' : ["light", [1]],
-            'Darkness' : ["light", [4,5,6,7]],
-            'Dry' : ["road_surface", [1]],
-            'Wet or damp' : ["road_surface", [2]],
-            'Snow' : ["road_surface", [3]],
-            'Other' : ["road_surface", [4,5,6,7]],
-            'Fine' : ["weather", [1,4]],
-            'Raining' : ["weather", [2,5]],
-            'Snowing' : ["weather", [3,6]],
-            'Fog or mist' : ["weather", [7]],
-            'No high winds' : ["weather", [1,2,3]],
-            'High winds' : ["weather", [4,5,6]],
-        }
-        
-        var alluvial_filters = {
-            "light" : [],
-            "road_surface" : [],
-            "weather" : []
-        }
-        
-
+                
         svg_alluvial_chart.append("text")
         .attr("text-anchor", "begin")
         .attr("x", margin.left)
@@ -757,8 +734,6 @@ function gen_alluvial_chart() {
         .attr("x", margin.left + (effectiveWidth/3)*3)
         .attr("y", height - 20)
         .text(names_in_viz[keys[3]]);
-
-
 
 }
 
