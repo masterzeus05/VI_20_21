@@ -5,7 +5,6 @@ let map_data = null;
 let pyramid_data = null;
 let test_data = null;
 let calendar_data = null;
-let radar_data = null;
 let unit_data = null;
 let other_data = null;
 
@@ -21,6 +20,7 @@ let selectedCounties = new Set();
 let selectedPyramidBars = new Set();
 let selectedPyramidSex = new Set();
 let selectedAlluvialLabels = new Set();
+let selected_month_dow = new Set();
 let selectedMinYear, selectedMaxYear;
 let selectedRoadOptions = {};
 let currentAccidentData = null;
@@ -34,7 +34,7 @@ let speedLimits = [];
 
 let yearSlider;
 
-let dispatch = d3.dispatch("countyEvent", "pyramidEvent", "unitEvent","pyramidMaleEvent","pyramidFemaleEvent","alluvialEvent");
+let dispatch = d3.dispatch("countyEvent", "pyramidEvent", "unitEvent","pyramidMaleEvent","pyramidFemaleEvent","alluvialEvent", 'heatmapEvent');
 
 // Car and speed limit signs options
 let carNumber = 40;
@@ -222,6 +222,7 @@ function processData() {
     prepareCountyEvent();
     preparePyramidEvent();
     prepareAlluvialEvent();
+    prepareHeatmapEvent();
     prepareUnitEvent();
     prepareButtons();
 }
@@ -623,6 +624,12 @@ function  gen_calendar_heatmap() {
         .attr("height", height)
         .attr("class", "svg_group");
 
+    svg_calendar_heatmap.append('filter')
+        .attr('id','desaturate')
+        .append('feColorMatrix')
+        .attr('type','matrix')
+        .attr('values',"0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0 0 0 1 0");
+
     let g = svg_calendar_heatmap.append("g")
         .attr("class", "svg_group");
 
@@ -632,7 +639,19 @@ function  gen_calendar_heatmap() {
         .attr("transform", translation(0,padding))
         .selectAll("text")
         .attr("color", "black")
-        .attr("font-size", "12");
+        .attr("font-size", "12")
+        .on('mouseover', (e, d) => {
+            if(!selected_month_dow.has(d)) {
+                d3.select(e.target)
+                    .style("font-size", "18");
+            }
+        })
+        .on('mouseout', (e, d) => {
+            if(!selected_month_dow.has(d)) {
+                d3.select(e.target)
+                    .style("font-size", "12");
+            }
+        });
 
     g.append("g")
         .attr("id", "yAxis")
@@ -648,7 +667,7 @@ function  gen_calendar_heatmap() {
     rects.selectAll("rect")
         .data(dataset)
         .join("rect")
-        .attr("class", ".rects")
+        .attr("class", "rects")
         .attr("width", monthScale.bandwidth())
         .attr("height", dayScale.bandwidth())
         .attr("x", d => monthScale(getMonth(d[0])))
@@ -1902,6 +1921,43 @@ function preparePyramidEvent() {
     }
 }
 
+//Click on heatmap
+function prepareHeatmapEvent() {
+    svg_calendar_heatmap.select('#xAxis')
+        .selectAll("text").on('click', (e, d) =>
+            dispatch.call('heatmapEvent', this, {event: e, datum: d})
+    );
+
+    dispatch.on('heatmapEvent', function(args) {
+       let x = args.datum,
+           event = args.event;
+
+        if(selected_month_dow.has(x)) {
+            console.log(selected_month_dow);
+           selected_month_dow.delete(x);
+           Object.keys(isDirty).map(function(key, index) {
+               setDirty(true);
+           });
+
+           d3.select(event.target)
+               .style("font-weight", "normal")
+               .style("font-size", "12");
+       }
+       else {
+           selected_month_dow.add(x);
+           Object.keys(isDirty).map(function(key, index) {
+               setDirty(true);
+           });
+
+            d3.select(event.target)
+                .style("font-weight", "bold")
+                .style("font-size", "17");;
+        }
+
+       setTimeout(function(){ updateIdioms(); }, 0);
+    });
+}
+
 //Click on unit chart
 function prepareUnitEvent() {
 
@@ -2022,6 +2078,18 @@ function prepareButtons() {
         svg_pyramid_bar_chart.select(".right-bar")
                              .select("#femaleLabel")
                              .style("font-weight", "normal");
+
+        //Unselect heatmap
+        if(selected_month_dow.size !== 0 ) {
+            setDirty(true);
+        }
+
+        selected_month_dow.size.clear();
+
+        svg_calendar_heatmap.select('#xAxis')
+            .selectAll('text')
+            .style("font-weight", "normal");
+
 
         // Reset selected road options
         if (Object.values(selectedRoadOptions).filter( v => v === "rural").length !== 0) {
@@ -2463,6 +2531,12 @@ function updateIdioms() {
             .attr("x", d => x_scale(x_function(d)))
             .attr("y", d => y_scale(y_function(d)))
             .attr("fill", d => colors(valueOf(d)))
+            .style('filter', d => {
+                if(selected_month_dow.size === 0) {
+                    return '';
+                }
+                return selected_month_dow.has(+x_function(d))?'':'url(#desaturate)'
+            })
             .select("title")
             .text(d => title(d));
 
@@ -2471,7 +2545,19 @@ function updateIdioms() {
             .attr("transform", translation(0, padding))
             .selectAll("text")
             .attr("color", "black")
-            .attr("font-size", "12");
+            .attr("font-size", "12")
+            .on('mouseover', (e, d) => {
+                if(!selected_month_dow.has(d)) {
+                    d3.select(e.target)
+                        .style("font-size", "18");
+                }
+            })
+            .on('mouseout', (e, d) => {
+                if(!selected_month_dow.has(d)) {
+                    d3.select(e.target)
+                        .style("font-size", "12");
+                }
+            });
 
         svg_calendar_heatmap.select("#yAxis")
             .call(yAxis)
@@ -2490,7 +2576,7 @@ function updateIdioms() {
 
 
 
-        let dataset = d3.group(radar_data, d => d.time.slice(0, 2));
+        let dataset = d3.group(other_data, d => d.time.slice(0, 2));
 
         for(let i = 0; i<24; i++) {
             let formattedNumber = ('0' + i).slice(-2);
@@ -3137,7 +3223,6 @@ function getFilteredData() {
         map_data = currentAccidentData;
         pyramid_data = currentAccidentData;
         calendar_data = currentAccidentData;
-        radar_data = currentAccidentData;
         other_data = currentAccidentData;
         return;
     }
@@ -3159,9 +3244,12 @@ function getFilteredData() {
 
         let f5 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
                 && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
-                && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather)); 
+                && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather));
 
-        return f3 && f4 && f5;
+        let f6 = (selected_month_dow.size === 0) ||
+            (yearRange() > 1 ? selected_month_dow.has(+d.date.slice(5, 7)): selected_month_dow.has(d.dow));
+
+        return f3 && f4 && f5 && f6;
     });
 
     pyramid_data = currentAccidentData.filter(d => {
@@ -3169,33 +3257,36 @@ function getFilteredData() {
 
         let f3 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
                 && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
-                && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather));  
+                && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather));
 
-        return f2 && f3 ;
-    })
+        let f6 = (selected_month_dow.size === 0) ||
+            (yearRange() > 1 ? selected_month_dow.has(+d.date.slice(5, 7)): selected_month_dow.has(d.dow));
 
-    radar_data = map_data.filter(d => {
-        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
-
-        return f2;
+        return f2 && f3 && f6;
     });
 
-    calendar_data = map_data.filter(d => {
+    calendar_data = currentAccidentData.filter(d => {
         let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
+        let f3 = (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
+        let f4 = (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
+        let f5 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
+            && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
+            && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather));
 
-        return f2;
+        return f2 && f3 && f4 && f5;
     });
 
-    other_data = accident_data.filter( d => {
-        let f1 = d.year >= selectedMinYear && d.year <= selectedMaxYear;
+    other_data = currentAccidentData.filter( d => {
         let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
         let f3 = (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
         let f4 = (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
         let f5 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
                  && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
-                 && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather)); 
+                 && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather));
+        let f6 = (selected_month_dow.size === 0) ||
+            (yearRange() > 1 ? selected_month_dow.has(+d.date.slice(5, 7)): selected_month_dow.has(d.dow));
 
-        return f1 && f2 && f3 && f4 && f5;
+        return f2 && f3 && f4 && f5 && f6;
     })
 }
 
