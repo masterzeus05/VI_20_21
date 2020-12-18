@@ -37,6 +37,9 @@ let yearSlider;
 
 let dispatch = d3.dispatch("countyEvent", "pyramidEvent", "unitEvent","pyramidMaleEvent","pyramidFemaleEvent","alluvialEvent", 'heatmapEvent');
 
+let minYearAccidentData;
+let maxYearAccidentData;
+
 // Car and speed limit signs options
 let carNumber = 40;
 let carSize = 25;
@@ -1696,8 +1699,8 @@ function gen_unit_chart() {
 
 // Generate year slider
 function gen_year_slider() {
-    let minYear = d3.min(accident_data, d => d.year);
-    let maxYear = d3.max(accident_data, d => d.year);
+    let minYear = minYearAccidentData = d3.min(accident_data, d => d.year);
+    let maxYear = maxYearAccidentData = d3.max(accident_data, d => d.year);
 
     selectedMaxYear = maxYear;
     selectedMinYear = minYear;
@@ -1934,7 +1937,6 @@ function prepareHeatmapEvent() {
            event = args.event;
 
         if(selected_month_dow.has(x)) {
-            console.log(selected_month_dow);
            selected_month_dow.delete(x);
            Object.keys(isDirty).map(function(key, index) {
                setDirty(true);
@@ -2042,9 +2044,9 @@ function prepareButtons() {
     d3.select("#reset").on("click", function(event) {
 
         // Reset years
-        if (selectedMinYear !== 2010 || selectedMaxYear !== 2019) {
-            selectedMinYear = 2010;
-            selectedMaxYear = 2019;
+        if (selectedMinYear !== minYearAccidentData || selectedMaxYear !== maxYearAccidentData) {
+            selectedMinYear = minYearAccidentData;
+            selectedMaxYear = maxYearAccidentData;
             setDirty(true);
         }
 
@@ -2085,11 +2087,12 @@ function prepareButtons() {
             setDirty(true);
         }
 
-        selected_month_dow.size.clear();
+        selected_month_dow.clear();
 
         svg_calendar_heatmap.select('#xAxis')
             .selectAll('text')
-            .style("font-weight", "normal");
+            .style("font-weight", "normal")
+            .style("font-size","12");
 
 
         // Reset selected road options
@@ -2276,7 +2279,6 @@ function updateIdioms() {
             .projection(projection);
 
         let g = svg_choropleth_map.select("g");
-
         let groupedByCounties = d3.rollup(map_data, v => v.length, d => d.county);
         groupedByCounties.delete('NaN');
 
@@ -3232,7 +3234,6 @@ function getFilteredData() {
     let pyramidFilters = filtersPyramidBar();
 
     let alluvialFilters = filtersAlluvialLabel();
-
     currentAccidentData = accident_data.filter( d => {
         let f1 = d.year >= selectedMinYear && d.year <= selectedMaxYear;
 
