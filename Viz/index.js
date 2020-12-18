@@ -9,11 +9,13 @@ let other_data = null;
 
 let svg_choropleth_map;
 let svg_pyramid_bar_chart = null;
+let svg_alluvial_chart = null;
 
 let svg_unit_chart = null;
 
 let selectedCounties = new Set();
 let selectedPyramidBars = new Set();
+let selectedPyramidSex = new Set();
 let selectedMinYear, selectedMaxYear;
 let selectedRoadOptions = {};
 let currentAccidentData = null;
@@ -27,7 +29,7 @@ let speedLimits = [];
 
 let yearSlider;
 
-let dispatch = d3.dispatch("countyEvent", "pyramidEvent", "unitEvent");
+let dispatch = d3.dispatch("countyEvent", "pyramidEvent", "unitEvent","alluvialEvent","pyramidMaleEvent","pyramidFemaleEvent");
 
 // Car and speed limit signs options
 let carNumber = 40;
@@ -76,9 +78,9 @@ let def_i2 = {
 // Alluvial Chart Settings
 let def_i3 = {
     margin: {
-        top: 32,
+        top: 32-20,
         right: 20,
-        bottom: 32,
+        bottom: 32+10,
         left: 20,
         middle: 24
     },
@@ -89,7 +91,7 @@ let def_i3 = {
 // Lines Chart Settings
 let def_i4 = {
     margin: {
-        top: 20,
+        top: 20 +20,
         right: 20,
         bottom: 32 + 15,
         left: 44 +15,
@@ -467,20 +469,50 @@ function gen_pyramid_bar_chart() {
         .attr('class', 'left-bar');
 
     leftBarGroup.append( 'text' )
+        .attr('id','maleLabel')
         .attr( 'transform', translation(regionWidth - margin.left,10) + ', scale(-1,1)')
         .style( 'font', '15px sans-serif' )
         .attr( 'text-anchor', 'start' )
         .html("Male")
+        .on("mouseover", function(event,d) {
+            // Check if not selected
+            if (!selectedPyramidSex.has("1")) {
+                d3.select(event.target)
+                    .style("font-weight", "bold");
+            }
+        })
+        .on("mouseout", function(event, d) {
+            // Check if not selected
+            if (!selectedPyramidSex.has("1")) {
+                d3.select(event.target)
+                .style("font-weight", "normal");
+            }
+        })
 
     let rightBarGroup = g.append('g')
         .attr('transform', 'translate(' + pointB + ',0)')
         .attr('class', 'right-bar');
 
     rightBarGroup.append( 'text' )
+        .attr('id','femaleLabel')
         .attr( 'transform', translation(regionWidth - 3*margin.right,10))
         .style( 'font', '15px sans-serif' )
         .attr( 'text-anchor', 'start' )
         .html("Female")
+        .on("mouseover", function(event,d) {
+            // Check if not selected
+            if (!selectedPyramidSex.has("2")) {
+                d3.select(event.target)
+                    .style("font-weight", "bold");
+            }
+        })
+        .on("mouseout", function(event, d) {
+            // Check if not selected
+            if (!selectedPyramidSex.has("2")) {
+                d3.select(event.target)
+                .style("font-weight", "normal");
+            }
+        })
 
     // Add axis
     g.append('g')
@@ -611,29 +643,27 @@ function gen_alluvial_chart() {
         };
     });
 
-    console.log(filteredAccidentData)
 
 
     keys = filteredAccidentData.columns.slice(0, -1)
 
     graph = dataToGraph(filteredAccidentData,keys);
-    console.log(graph)
     sankey = d3.sankey()
-    .nodeSort(null)
+    .nodeSort(function(a, b){
+        return a.name.localeCompare(b.name);})
     .linkSort(null)
     .nodeWidth(10)
     .nodePadding(2)
     .extent([[0, 5], [effectiveWidth, effectiveHeight]])
-
-    color = d3.scaleOrdinal(["Dry"], ["#da4f81"]).unknown("#ccc")
-    color = d3.scaleOrdinal(["#abc4d6", "#d6abb3", "#d6c5ab"])
+    color = d3.scaleOrdinal(["#abc4d6", "#b6abd6","#d6abb3", "#d6abd3"]).domain(["Dry","Snow","Wet or damp","Other"])
 
     const {nodes, links} = sankey({
         nodes: graph.nodes.map(d => Object.assign({}, d)),
         links: graph.links.map(d => Object.assign({}, d))});
 
-
+        console.log(nodes)
         g.append("g")
+        .attr('id', 'nodes_rect')
         .selectAll("rect")
         .data(nodes)
         .join("rect")
@@ -645,18 +675,22 @@ function gen_alluvial_chart() {
         .text(d => `${d.name}\n${d.value.toLocaleString()}`);
 
         g.append("g")
+        .attr('id', 'links_path')
         .attr("fill", "none")
         .selectAll("g")
         .data(links)
         .join("path")
         .attr("d", d3.sankeyLinkHorizontal())
-        .attr("stroke", d => color(d.names[0]))
+        .attr("stroke", function(d){
+            return color(d.names[0])
+        })
         .attr("stroke-width", d => d.width)
         .style("mix-blend-mode", "multiply")
         .append("title")
         .text(d => `${d.names.join(" → ")}\n${d.value.toLocaleString()}`);
 
         g.append("g")
+        .attr('id', 'nodes_label')
         .style("font", "15px sans-serif")
         .style("font-weight", "bold")
         .selectAll("text")
@@ -666,10 +700,63 @@ function gen_alluvial_chart() {
         .attr("y", d => (d.y1 + d.y0) / 2)
         .attr("dy", "0.35em")
         .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
-        .text(d => d.name)
+        .text(function(d){
+            return d.name})
         // .append("tspan")
         // .attr("fill-opacity", 0.7)
         // .text(d => ` ${d.value.toLocaleString()}`);
+
+        names_in_viz = {"road_surface": "Road Surface",
+                        "light": "Light",
+                        "weather": "Weather",
+                        "wind": "Wind"
+                        }
+
+        var alluvial_filters_map = {
+            'Daylight' : ["light", [1]],
+            'Darkness' : ["light", [4,5,6,7]],
+            'Dry' : ["road_surface", [1]],
+            'Wet or damp' : ["road_surface", [2]],
+            'Snow' : ["road_surface", [3]],
+            'Other' : ["road_surface", [4,5,6,7]],
+            'Fine' : ["weather", [1,4]],
+            'Raining' : ["weather", [2,5]],
+            'Snowing' : ["weather", [3,6]],
+            'Fog or mist' : ["weather", [7]],
+            'No high winds' : ["weather", [1,2,3]],
+            'High winds' : ["weather", [4,5,6]],
+        }
+        
+        var alluvial_filters = {
+            "light" : [],
+            "road_surface" : [],
+            "weather" : []
+        }
+        
+
+        svg_alluvial_chart.append("text")
+        .attr("text-anchor", "begin")
+        .attr("x", margin.left)
+        .attr("y", height - 20)
+        .text(names_in_viz[keys[0]]);
+
+        svg_alluvial_chart.append("text")
+        .attr("text-anchor", "middle")
+        .attr("x", margin.left + effectiveWidth/3)
+        .attr("y", height - 20)
+        .text(names_in_viz[keys[1]]);
+
+        svg_alluvial_chart.append("text")
+        .attr("text-anchor", "middle")
+        .attr("x", margin.left + (effectiveWidth/3)*2)
+        .attr("y", height - 20)
+        .text(names_in_viz[keys[2]]);
+
+        svg_alluvial_chart.append("text")
+        .attr("text-anchor", "end")
+        .attr("x", margin.left + (effectiveWidth/3)*3)
+        .attr("y", height - 20)
+        .text(names_in_viz[keys[3]]);
 
 
 
@@ -807,9 +894,17 @@ function gen_lines_chart() {
     .text("Number of casualties per accident");
 
     svg.append("text")
+    .attr("text-anchor", "middle")
+    .attr("font-size",20)
+    .style("font-weight", "bold")
+    .attr("y", -13)
+    .attr("x", effectiveWidth/2)
+    .text("Makes with more casualties");
+
+    svg.append("text")
     .attr("text-anchor", "end")
     .attr("x", width/2 - 20)
-    .attr("y", height - 30)
+    .attr("y", effectiveHeight+35)
     .text("Year");
 
     make.append("path")
@@ -864,7 +959,7 @@ function gen_lines_chart() {
         .attr("font-size",10)
 
     var size = 10
-    var legend_x = width - margin.right*8
+    var legend_x = width - margin.right*9
     svg.selectAll("mydots")
         .data(worst_makes)
         .enter()
@@ -1362,6 +1457,21 @@ function preparePyramidEvent() {
             d3.select(event.target)
                 .style("stroke", "black")
                 .style("stroke-width", "0.5");
+            
+            if (selectedPyramidSex.has(sex)){
+                if (sex === "1"){
+                    svg_pyramid_bar_chart.select(".left-bar")
+                                         .select("#maleLabel")
+                                         .style("font-weight", "normal");
+                }
+                else{
+                    svg_pyramid_bar_chart.select(".right-bar")
+                                         .select("#femaleLabel")
+                                         .style("font-weight", "normal");
+                }
+                                    
+                selectedPyramidSex.delete(sex);
+            }
         }
         else {
             // Select
@@ -1370,20 +1480,86 @@ function preparePyramidEvent() {
                 if (key !== "2") isDirty[key] = true;
             });
 
-            let dasharray = event.target.getAttribute("width") + ",0,"
-                            + event.target.getAttribute("height") + ",0,"
-                            + event.target.getAttribute("width");
-
             // Change stroke to selected
             d3.select(event.target)
                 .style("stroke", "black")
                 .style("stroke-width", "3")
-                .style("stroke-dasharray", (dasharray));
         }
 
         // Update all idioms
         setTimeout(function(){ updateIdioms(); }, 0)
     });
+
+    svg_pyramid_bar_chart.select(".left-bar").select("#maleLabel").on("click", (event, datum) => {
+        dispatch.call("pyramidMaleEvent", this, {event: event, datum: datum});
+    });
+
+    dispatch.on("pyramidMaleEvent", function(args) {
+        sexLabelEvent("1",args.event);
+    });
+
+    svg_pyramid_bar_chart.select(".right-bar").select("#femaleLabel").on("click", (event, datum) => {
+        dispatch.call("pyramidFemaleEvent", this, {event: event, datum: datum});
+    });
+
+    dispatch.on("pyramidFemaleEvent", function(args) {
+        sexLabelEvent("2",args.event);
+    });
+
+    function sexLabelEvent(sex, event){
+        
+        // Check if already selected
+        if (selectedPyramidSex.has(sex)) {
+
+            // Change text to unselected
+            d3.select(event.target)
+            .style("font-weight", "normal")
+
+            // Unselect
+            selectedPyramidSex.delete(sex);
+            Object.keys(isDirty).map(function(key, index) {
+                if (key !== "2") isDirty[key] = true;
+            });
+            
+            let bar = (sex=="1")? ".left-bar" : ".right-bar";
+            // Change stroke to unselected
+            svg_pyramid_bar_chart.select(bar).selectAll("rect")
+                .style("stroke", "black")
+                .style("stroke-width", "0.5")
+                .style("stroke", "transparent")
+                .selectAll(function(){
+                    let selectedBar = d3.select(this).datum()[0] + "|" + sex;
+                    selectedPyramidBars.delete(selectedBar);
+                })
+            
+        }
+        else {
+
+            // Change text to selected
+            d3.select(event.target)
+            .style("font-weight", "bolder")
+
+            // Select
+            selectedPyramidSex.add(sex);
+            Object.keys(isDirty).map(function(key, index) {
+                if (key !== "2") isDirty[key] = true;
+            });
+
+            let bar = (sex=="1")? ".left-bar" : ".right-bar";
+            // Change stroke to selected
+            svg_pyramid_bar_chart.select(bar).selectAll("rect")
+                .style("stroke", "black")
+                .style("stroke-width", "3")
+                .selectAll(function(){
+                    let selectedBar = d3.select(this).datum()[0] + "|" + sex;
+                    selectedPyramidBars.add(selectedBar);
+                })
+
+        }
+
+        // Update all idioms
+        setTimeout(function(){ updateIdioms(); }, 0)
+    }
 }
 
 //Click on unit chart
@@ -1454,6 +1630,13 @@ function prepareButtons() {
             .selectAll('rect')
             .style("stroke", "transparent");
         selectedPyramidBars.clear();
+        selectedPyramidSex.clear();
+        svg_pyramid_bar_chart.select(".left-bar")
+                             .select("#maleLabel")
+                             .style("font-weight", "normal");
+        svg_pyramid_bar_chart.select(".right-bar")
+                             .select("#femaleLabel")
+                             .style("font-weight", "normal");
 
         // Reset selected road options
         if (Object.values(selectedRoadOptions).filter( v => v === "rural").length !== 0) {
@@ -1957,12 +2140,10 @@ function updateIdioms() {
         var x = d3.scaleLinear()
                 .domain([min_Vehicle_Year,max_Vehicle_Year])
                 .range([0, effectiveWidth]);
-        console.log(x.domain())
 
         var y = d3.scaleLinear()
                 .domain([0, maxY])
                 .range([effectiveHeight, 0]);
-        console.log(y.domain())
 
         var svg = d3.select("#line_chart")
                     .select("svg")
@@ -1986,8 +2167,6 @@ function updateIdioms() {
             })
             };
         });
-        console.log(makes)
-        console.log("update ", makes)
     svg.selectAll(".make")
         .data(makes).select("path")
         .on('mouseover', mouseover)
@@ -2093,50 +2272,160 @@ function updateIdioms() {
     
     }
 
-    let count = 0;
-    let maxCount = 4;
+    function updateAlluvialChart(){
+        let margin = def_i3.margin;
+        let width = def_i3.width,
+            height = def_i3.height,
+            effectiveWidth = width - margin.left - margin.right,
+            effectiveHeight = height - margin.bottom - margin.top;
 
-    function updateDirty() {
-        if (count !== maxCount) return;
-        setDirty(false);
-    }
+        svg_alluvial_chart = d3.select("#alluvial_chart")
+        .select("svg")
 
-    new Promise(function(resolve, reject) {
-        getFilteredData();
-        resolve();
-    }).then(function(val) {
-        new Promise(function(resolve, reject) {
-            if (isDirty["1"])  update_choropleth_map();
-            resolve();
-        }).then( r => {
-            count++;
-            updateDirty();
+        let g = svg_alluvial_chart.select("g");
+
+        let filteredAccidentData = other_data.filter(d => {
+            return d.road_surface !== "" && !isNaN(d.road_surface) && d.road_surface!=-1
+                && d.light !== "" && !isNaN(d.light) && d.light!=-1
+                && d.weather!="" && !isNaN(d.weather) && d.weather!=-1
+                && d.weather!=8 && d.weather!=9;
+        })
+
+        filteredAccidentData = filteredAccidentData.map(function(d){
+            return {
+                road_surface: translations_for_alluvial.Road_Surface_Conditions[d.road_surface],
+                light: translations_for_alluvial.Light_Conditions[d.light],
+                weather: translations_for_alluvial.Weather_Conditions[d.weather],
+                wind: translations_for_alluvial.Weather_Conditions_wind[d.weather]
+            }
+        } )
+
+        filteredAccidentData = d3.rollup(filteredAccidentData, v => v.length, d => d.road_surface, d => d.light, d => d.weather, d => d.wind)
+        filteredAccidentData = unroll(filteredAccidentData, ['road_surface','light','weather','wind']);
+        filteredAccidentData = d3.csvParse(d3.csvFormat(filteredAccidentData), function(d){
+            return {
+                road_surface: d.road_surface,
+                light: d.light,
+                weather: d.weather,
+                wind: d.wind,
+                value: +d.value
+            };
         });
 
-        new Promise(function(resolve, reject) {
-            if (isDirty["2"])  updatePyramidBarChart();
-            resolve();
-        }).then( r => {
-            count++;
-            updateDirty();
-        });
+
+        keys = filteredAccidentData.columns.slice(0, -1)
+
+        graph = dataToGraph(filteredAccidentData,keys);
+        sankey = d3.sankey()
+        .nodeSort(function(a, b){
+            return a.name.localeCompare(b.name);})
+        .linkSort(null)
+        .nodeWidth(10)
+        .nodePadding(2)
+        .extent([[0, 5], [effectiveWidth, effectiveHeight]])
+        color = d3.scaleOrdinal(["#abc4d6", "#b6abd6","#d6abb3", "#d6abd3"]).domain(["Dry","Snow","Wet or damp","Other"])
+        //["#abc4d6", "#d6abb3"]
+        
+
+        const {nodes, links} = sankey({
+            nodes: graph.nodes.map(d => Object.assign({}, d)),
+            links: graph.links.map(d => Object.assign({}, d))});
+
+
+            g.select("#nodes_rect")
+            .selectAll("rect")
+            .data(nodes)
+            .transition()
+            .delay(1500)
+            .duration(1000)
+            .attr("x", d => d.x0)
+            .attr("y", d => d.y0)
+            .attr("height", d => d.y1 - d.y0)
+            .attr("width", d => d.x1 - d.x0)
+            .select("title")
+            .text(d => `${d.name}\n${d.value.toLocaleString()}`);
+
+            g.select("#links_path")
+            .attr("fill", "none")
+            .selectAll("path")
+            .data(links)
+            .transition()
+            .delay(1500)
+            .duration(1000)
+            .attr("d", d3.sankeyLinkHorizontal())
+            .attr("stroke", d => color(d.names[0]))
+            .attr("stroke-width", d => d.width)
+            .style("mix-blend-mode", "multiply")
+            .select("title")
+            .text(d => `${d.names.join(" → ")}\n${d.value.toLocaleString()}`);
+
+            g.select("#nodes_label")
+            .style("font", "15px sans-serif")
+            .style("font-weight", "bold")
+            .selectAll("text")
+            .data(nodes)
+            .transition()
+            .delay(1500)
+            .duration(1000)
+            .attr("x", d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
+            .attr("y", d => (d.y1 + d.y0) / 2)
+            .attr("dy", "0.35em")
+            .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
+            .text(d => d.name)
+        }
+
+        let count = 0;
+        let maxCount = 5;
+
+        function updateDirty() {
+            if (count !== maxCount) return;
+            setDirty(false);
+        }
 
         new Promise(function(resolve, reject) {
-            if (isDirty["4"])  updateLineChart();
+            getFilteredData();
             resolve();
-        }).then( r => {
-            count++;
-            updateDirty();
-        });
+        }).then(function(val) {
+            new Promise(function(resolve, reject) {
+                if (isDirty["1"])  update_choropleth_map();
+                resolve();
+            }).then( r => {
+                count++;
+                updateDirty();
+            });
 
-        new Promise(function(resolve, reject) {
-            if (isDirty["7"])  updateUnitChart();
-            resolve();
-        }).then( r => {
-            count++;
-            updateDirty();
+            new Promise(function(resolve, reject) {
+                if (isDirty["2"])  updatePyramidBarChart();
+                resolve();
+            }).then( r => {
+                count++;
+                updateDirty();
+            });
+
+            new Promise(function(resolve, reject) {
+                if (isDirty["3"])  updateAlluvialChart();
+                resolve();
+            }).then( r => {
+                count++;
+                updateDirty();
+            });
+
+            new Promise(function(resolve, reject) {
+                if (isDirty["4"])  updateLineChart();
+                resolve();
+            }).then( r => {
+                count++;
+                updateDirty();
+            });
+
+            new Promise(function(resolve, reject) {
+                if (isDirty["7"])  updateUnitChart();
+                resolve();
+            }).then( r => {
+                count++;
+                updateDirty();
+            });
         });
-    });
 }
 
 // Update data according to filters

@@ -108,7 +108,7 @@ let translations_for_alluvial = {
         1: "Dry",
         2: "Wet or damp",
         3: "Snow",
-        4: "Snow",
+        4: "Other",
         5: "Other",
         6: "Other",
         7: "Other"
@@ -120,9 +120,9 @@ let translations_for_alluvial = {
         4: "Fine",
         5: "Raining",
         6: "Snowing",
-        7: "Fog or mist",
-        8: "Other",
-        9: "Unknown"
+        7: "Fog or mist"
+        //8: "Other",
+        //9: "Unknown"
     },
     Weather_Conditions_wind: {
         1: "No high winds",
@@ -131,8 +131,8 @@ let translations_for_alluvial = {
         4: "High winds",
         5: "High winds",
         6: "High winds",
-        7: "No high winds",
-        8: "Other",
-        9: "Unknown"
+        7: "No high winds"
+        //8: "Other",
+        //9: "Unknown"
     }
 };
