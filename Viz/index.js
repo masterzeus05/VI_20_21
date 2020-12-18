@@ -4,9 +4,7 @@ let uk_data = null;
 let map_data = null;
 let pyramid_data = null;
 let alluvial_data = null;
-let test_data = null;
 let calendar_data = null;
-let unit_data = null;
 let other_data = null;
 
 let svg_choropleth_map;
@@ -40,32 +38,16 @@ let dispatch = d3.dispatch("countyEvent", "pyramidEvent", "unitEvent","pyramidMa
 let minYearAccidentData;
 let maxYearAccidentData;
 
-// Car and speed limit signs options
-let carNumber = 40;
-let carSize = 25;
-let carPadding = 7;
-let carSpeed = [0.10, 0.11, 0.12, 0.14, 0.16, 0.18];
-let speedSignSize = 40;
-let speedSignMargin = 2;
-let timeBetweenCarTransitions = 15000; // ms
-let carScaleSize = 25;
-let roadOptionSize = 30;
-let roadOptionPadding = 5;
-
-
-const ticksDoW = [1,2,3,4,5,6,7]
+const ticksDoW = range(7, 1);
 const daysOfWeek = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
 
-const ticksDays = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
-    18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+const ticksDays = range(31, 1);
 
-const ticksWeekN = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
-    18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
-    41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54]
+const ticksWeekN = range(54, 1);
 
-const hours = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+const hours = range(13, 0);
 
-const ticksMonth = [1,2,3,4,5,6,7,8,9,10,11,12]
+const ticksMonth = range(12, 1);
 const months = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"]
 
 // Choropleth Map Chart Settings
@@ -125,7 +107,7 @@ let def_i4 = {
     height: 400
 }
 
-// Calendar Heatmap Chart Settings
+// Radar Chart Settings
 let def_i5 = {
     padding: 30,
     width: 500,
@@ -134,6 +116,7 @@ let def_i5 = {
     legendHeight: 50
 }
 
+// Calendar Heatmap Settings
 let def_i6 = {
     width: 500,
     height: 300,
@@ -152,7 +135,18 @@ let def_i7 = {
         left: 0
     },
     width: 350,
-    height: 800
+    height: 800,
+    // Car and speed limit signs options
+    carNumber: 40,
+    carSize: 25,
+    carPadding: 7,
+    carSpeed: [0.10, 0.11, 0.12, 0.14, 0.16, 0.18],
+    speedSignSize: 40,
+    speedSignMargin: 2,
+    timeBetweenCarTransitions: 15000, // ms
+    carScaleSize: 25,
+    roadOptionSize: 30,
+    roadOptionPadding: 5
 }
 
 let animateCars;
@@ -189,10 +183,6 @@ function getData() {
         if (error != null) {
             console.log(error);
         }
-        test_data = d3.rollup(data, v => v.length,
-            d => d.year, d => d.sex, d => d.age, d => d.county, d => d.casualties,
-            d => d.vehicle_Year, d => d.make, d => d.dow, d => d.date, d => d.time)
-        test_data = unroll(test_data, ['year','sex','age','county','number_of_casualties','vehicle_year','make', 'dow', 'date', 'time']);
 
         accident_data = data;
         currentAccidentData = data;
@@ -299,7 +289,6 @@ function gen_choropleth_map() {
     groupedByCounties.delete('NaN');
 
     let max = Math.max(...groupedByCounties.values());
-    let min = Math.min(...groupedByCounties.values());
 
     // Gets choropleth color scale
     let colorScaleMap = d3.scaleLinear()
@@ -409,333 +398,6 @@ function gen_choropleth_map() {
 
 }
 
-//Generate radial chart
-function gen_radial_chart() {
-    let width = def_i6.width,
-        height = def_i6.height,
-        padding = def_i6.padding;
-
-    let dataset = d3.group(currentAccidentData, d => d.time.slice(0, 2));
-    let keys = Array.from(dataset.keys());
-
-    dataset = new Map([...dataset.entries()].sort());
-
-    let max = d3.max(keys, d => dataset.get(d).length);
-
-    let datasetO = new Map(dataset);
-    let datasetAM = new Map(dataset);
-    let datasetPM = new Map(dataset);
-
-    for (let k of datasetAM.keys()) {
-        if (!(k >= 6 && k <= 20))
-            datasetAM.delete(k);
-    }
-    for (let k of datasetPM.keys()) {
-        if (!(k > 17 || k < 9))
-            datasetPM.delete(k);
-    }
-
-    let datasetPM1st = new Map(datasetPM);
-    let datasetPM2nd = new Map(datasetPM);
-
-    for (let k of datasetPM1st.keys()) {
-        if (k < 18)
-            datasetPM1st.delete(k);
-    }
-    for (let k of datasetPM2nd.keys()) {
-        if (k > 8)
-            datasetPM2nd.delete(k);
-    }
-
-    datasetPM = new Map([...datasetPM1st].concat([...datasetPM2nd]));
-
-    dataset = [datasetAM, datasetPM];
-
-    let radius = (height / 2 - padding * 4);
-
-    let rScale = d3.scaleLinear()
-        .range([0, radius])
-        .domain([0, max]);
-
-    svg_radar_chart = d3.select('#radial_chart')
-        .append('svg')
-        .attr('width', width)
-        .attr('height', height)
-        .attr("class", "svg_group");
-
-    let Format = d3.format('.3s');
-    let angleSlice = Math.PI / 6;
-
-    let g = svg_radar_chart.append('g')
-        .attr('transform', 'translate(' +  (width/2 + padding * 6) + ',' + (height/2) +')');
-
-    let axisGrid = g.append('g')
-        .attr('class', 'axisWrapper');
-
-    axisGrid.selectAll('.levels')
-        .data(d3.range(1, (def_i6.levels + 1)).reverse())
-        .enter()
-        .append('circle')
-        .attr('class', 'gridCircle')
-        .attr('r', d => radius/def_i6.levels * d)
-        .style("fill", "#CDCDCD")
-        .style("stroke", "#CDCDCD")
-        .style("fill-opacity", def_i6.opacity);
-
-    axisGrid.selectAll("#axisLabel")
-        .data(d3.range(1,(def_i6.levels+1)).reverse())
-        .enter()
-        .append("text")
-        .attr("id", "axisLabel")
-        .attr("x", d => d * radius / def_i6.levels + def_i6.labelFactor)
-        .attr("y", 0)
-        .attr("dy", "0.4em")
-        .style("font-size", "10px")
-        .attr("fill", "#737373")
-        .text(d =>Format(max * d/def_i6.levels));
-
-    let axis = axisGrid.selectAll(".axis")
-        .data(hours)
-        .enter()
-        .append("g")
-        .attr("class", "axis");
-
-    //Append the lines
-    axis.append("line")
-        .attr("x1", 0)
-        .attr("y1", 0)
-        .attr("x2", (d,i) => rScale(max * def_i6.labelFactor) * Math.cos(angleSlice*i - Math.PI/2))
-        .attr("y2", (d, i) => rScale(max * def_i6.labelFactor) * Math.sin(angleSlice*i - Math.PI/2))
-        .attr("class", "line")
-        .style("stroke", "white")
-        .style("stroke-width", d => (d==3)?'0px':"2px");
-
-    //Append the labels at each axis
-    axis.append("text")
-        .attr("class", "legend")
-        .style("font-size", "11px")
-        .attr("text-anchor", "middle")
-        .attr("dy", "0.35em")
-        .attr("x", (d, i) => rScale(max * def_i6.labelFactor) * Math.cos(angleSlice*i - Math.PI/2))
-        .attr("y", (d, i) => rScale(max * def_i6.labelFactor) * Math.sin(angleSlice*i - Math.PI/2))
-        .text(d => (d==0 || d==3)?'':d);
-
-    let angles = d3.scaleLinear()
-        .domain([0, 12])
-        .range([0, 2 * Math.PI]);
-
-    let radarLine = d3.lineRadial()
-        .angle((d) => angles(+d[0]))
-        .radius(d => rScale(d[1].length))
-        .curve(d3.curveCardinalOpen);
-
-    let blobWrapper = g.selectAll(".radarWrapper")
-        .data(dataset)
-        .enter()
-        .append("g")
-        .attr("class", "radarWrapper");
-
-    blobWrapper.append("path")
-        .attr("id", "radarStroke")
-        .attr("d", radarLine)
-        .style("stroke-width", 2 + "px")
-        .style("stroke", (d, i) => (i===0)? "#af7070" : "#44849a")
-        .style("fill", "none");
-
-    blobWrapper.selectAll("#radarCircle")
-        .data(datasetO)
-        .enter()
-        .append("circle")
-        .attr("id", "radarCircle")
-        .attr("r", 3)
-        .attr("cx", (d) => rScale(d[1].length) * Math.cos(angles(+d[0]%12) - Math.PI/2))
-        .attr("cy", (d) => rScale(d[1].length) * Math.sin(angles(+d[0]%12) - Math.PI/2))
-        .style("fill", (d) => (+d[0] >= 7 && +d[0] <= 19)? "#ac5454" : "#2e657d")
-        .style("fill-opacity", 0.8)
-        .append('title')
-        .text(d => d[1].length);
-
-    let legendG = svg_radar_chart.append('g')
-        .attr('class', 'legend');
-
-    legendG.append('circle')
-        .attr('cx', 3 * padding)
-        .attr('cy', padding)
-        .attr('transform', translation(padding, height - 8*padding))
-        .attr('r', 7)
-        .style('fill', "#ac5454");
-
-    legendG.append('text')
-        .attr('x', 6 * padding)
-        .attr('y', height - 6.5*padding)
-        .style('fill', '#575757')
-        .style("font-size", "16px")
-        .text('AM');
-
-    legendG.append('circle')
-        .attr('cx', 3 * padding)
-        .attr('cy', padding)
-        .attr('transform', translation(padding, height - 5*padding))
-        .attr('r', 7)
-        .style('fill', "#2e657d");
-
-    legendG.append('text')
-        .attr('x', 6 * padding)
-        .attr('y', height - 3.5*padding)
-        .style('fill', '#575757')
-        .style("font-size", "16px")
-        .text('PM');
-}
-
-//Generate calendar heatmap
-function  gen_calendar_heatmap() {
-    let width = def_i5.width,
-        height = def_i5.height,
-        padding = def_i5.padding;
-
-    let dataset = d3.rollup(currentAccidentData, v => v.length, d=> d.year, d=>d.date.slice(5));
-    dataset = unroll(dataset, ['year', 'date', 'value']);
-    dataset = d3.rollup(dataset, v=>d3.mean(v, v=> v.value), d=> d.date);
-
-    let min = d3.min(dataset, d => d[1]),
-        max = d3.max(dataset, d => d[1]);
-
-    let colors = d3.scaleLinear()
-        .domain([min, max])
-        .range(["#8ecefd","#f88b9d"]);
-
-    let monthScale = d3.scaleBand()
-        .domain(ticksMonth)
-        .range([padding, width - padding])
-
-    let xAxis = d3.axisTop()
-        .scale(monthScale)
-        .tickValues(ticksMonth)
-        .tickFormat((d, i) => months[i]);
-
-    let dayScale = d3.scaleBand()
-        .domain(ticksDays)
-        .range([padding, height - padding * 2]);
-
-    let yAxis = d3.axisLeft()
-        .scale(dayScale);
-
-    svg_calendar_heatmap = d3.select("#calendar_heatmap")
-        .append("svg")
-        .attr("width", width)
-        .attr("height", height)
-        .attr("class", "svg_group");
-
-    svg_calendar_heatmap.append('filter')
-        .attr('id','desaturate')
-        .append('feColorMatrix')
-        .attr('type','matrix')
-        .attr('values',"0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0 0 0 1 0");
-
-    let g = svg_calendar_heatmap.append("g")
-        .attr("class", "svg_group");
-
-    g.append("g")
-        .attr("id", "xAxis")
-        .call(xAxis)
-        .attr("transform", translation(0,padding))
-        .selectAll("text")
-        .attr("color", "black")
-        .attr("font-size", "12")
-        .on('mouseover', (e, d) => {
-            if(!selected_month_dow.has(d)) {
-                d3.select(e.target)
-                    .style("font-size", "18");
-            }
-        })
-        .on('mouseout', (e, d) => {
-            if(!selected_month_dow.has(d)) {
-                d3.select(e.target)
-                    .style("font-size", "12");
-            }
-        });
-
-    g.append("g")
-        .attr("id", "yAxis")
-        .call(yAxis)
-        .attr("transform", translation(padding,0))
-        .selectAll("text")
-        .attr("color", "black")
-        .attr("font-size", "11");
-
-    let rects = g.append("g")
-        .attr("class", "rects");
-
-    rects.selectAll("rect")
-        .data(dataset)
-        .join("rect")
-        .attr("class", "rects")
-        .attr("width", monthScale.bandwidth())
-        .attr("height", dayScale.bandwidth())
-        .attr("x", d => monthScale(getMonth(d[0])))
-        .attr("y", d => dayScale(getDay(d[0])))
-        .attr("fill", d => colors(d[1]))
-        .append("title")
-        .text(d => d);
-
-    let legend_g = svg_calendar_heatmap
-        .append('g')
-        .attr('id', 'legend-svg-calendar')
-        .attr('width', def_i5.legendWidth)
-        .attr('height', def_i5.legendHeight)
-        .attr('transform', translation(-padding, height - padding));
-
-    let countScale = d3.scaleLinear()
-        .domain([min, max])
-        .range([0, def_i5.legendWidth])
-
-    //Calculate the variables for the temp gradient
-    let numStops = 4;
-    let countRange = countScale.domain();
-    countRange[2] = countRange[1] - countRange[0];
-    let countPoint = [];
-    for(let i = 0; i < numStops; i++) {
-        countPoint.push(i * countRange[2]/(numStops-1) + countRange[0]);
-    }
-
-    //Create the gradient
-    legend_g.append("defs")
-        .append("linearGradient")
-        .attr("id", "legend-map-calendar")
-        .attr("y1", "0%").attr("x1", "0%")
-        .attr("y2", "0%").attr("x2", "100%")
-        .selectAll("stop")
-        .data(d3.range(numStops))
-        .enter()
-        .append("stop")
-        .attr("offset", function(d,i) {
-            return countScale( countPoint[i] )/ def_i5.legendWidth;
-        })
-        .attr("stop-color", function(d,i) {
-            return colors( countPoint[i] );
-        });
-
-    legend_g.append("rect")
-        .attr("id", "legendRectHeatmap")
-        .attr("x", width/2 - def_i5.legendWidth/2 + padding)
-        .attr("y", 0)
-        .attr("width", def_i5.legendWidth)
-        .attr("height", 10)
-        .style("fill", "url(#legend-map-calendar)");
-
-    //Define legend axis
-    let legendAxis = d3.axisTop()
-        .ticks(4)
-        .tickFormat(d3.format(".0s"))
-        .scale(countScale);
-
-    //Set up legend axis
-    legend_g.append("g")
-        .attr("id", "legend-axis-heatmap")
-        .attr("transform", translation(width/2 - def_i5.legendWidth/2 + padding, 0))
-        .call(legendAxis);
-}
-
 // Generate pyramid bar chart
 function gen_pyramid_bar_chart() {
     // Check if already generated
@@ -803,10 +465,8 @@ function gen_pyramid_bar_chart() {
         .tickFormat(d3.format(".2s"));
 
     // Y scale
-    let yScaleData = ageBandsKeys;
-
     let yScale = d3.scaleBand()
-        .domain(yScaleData)
+        .domain(ageBandsKeys)
         .range([0, effectiveHeight - margin.bottom])
         .paddingInner(0.2)
         .paddingOuter(0.2);
@@ -847,14 +507,14 @@ function gen_pyramid_bar_chart() {
         .style( 'font', '15px sans-serif' )
         .attr( 'text-anchor', 'start' )
         .html("Male")
-        .on("mouseover", function(event,d) {
+        .on("mouseover", function(event) {
             // Check if not selected
             if (!selectedPyramidSex.has("1")) {
                 d3.select(event.target)
                     .style("font-weight", "bold");
             }
         })
-        .on("mouseout", function(event, d) {
+        .on("mouseout", function(event) {
             // Check if not selected
             if (!selectedPyramidSex.has("1")) {
                 d3.select(event.target)
@@ -872,14 +532,14 @@ function gen_pyramid_bar_chart() {
         .style( 'font', '15px sans-serif' )
         .attr( 'text-anchor', 'start' )
         .html("Female")
-        .on("mouseover", function(event,d) {
+        .on("mouseover", function(event) {
             // Check if not selected
             if (!selectedPyramidSex.has("2")) {
                 d3.select(event.target)
                     .style("font-weight", "bold");
             }
         })
-        .on("mouseout", function(event, d) {
+        .on("mouseout", function(event) {
             // Check if not selected
             if (!selectedPyramidSex.has("2")) {
                 d3.select(event.target)
@@ -989,10 +649,10 @@ function gen_alluvial_chart() {
                               .attr("class", "svg_group");
 
     let filteredAccidentData = accident_data.filter(d => {
-        return d.road_surface !== "" && !isNaN(d.road_surface) && d.road_surface!=-1
-            && d.light !== "" && !isNaN(d.light) && d.light!=-1
-            && d.weather!="" && !isNaN(d.weather) && d.weather!=-1
-            && d.weather!=8 && d.weather!=9;
+        return d.road_surface !== "" && !isNaN(d.road_surface) && d.road_surface !== -1
+            && d.light !== "" && !isNaN(d.light) && d.light !== -1
+            && d.weather !== "" && !isNaN(d.weather) && d.weather !== -1
+            && d.weather !== 8 && d.weather !== 9;
     })
 
     filteredAccidentData = filteredAccidentData.map(function(d){
@@ -1005,27 +665,17 @@ function gen_alluvial_chart() {
     } )
 
     filteredAccidentData = d3.rollup(filteredAccidentData, v => v.length, d => d.road_surface, d => d.light, d => d.weather, d => d.wind)
-    filteredAccidentData = unroll(filteredAccidentData, ['road_surface','light','weather','wind']);
-    filteredAccidentData = d3.csvParse(d3.csvFormat(filteredAccidentData), function(d){
-        return {
-            road_surface: d.road_surface,
-            light: d.light,
-            weather: d.weather,
-            wind: d.wind,
-            value: +d.value
-        };
-    });
+    let keys = ['road_surface','light','weather','wind', 'value']
+    filteredAccidentData = unroll(filteredAccidentData, keys);
 
-    keys = filteredAccidentData.columns.slice(0, -1)
-
-    graph = dataToGraph(filteredAccidentData,keys);
-    sankey = d3.sankey()
+    let graph = dataToGraph(filteredAccidentData,keys.slice(0, -1));
+    let sankey = d3.sankey()
                .nodeSort(function(a, b){return a.name.localeCompare(b.name);})
                .linkSort(null)
                .nodeWidth(10)
                .nodePadding(2)
                .extent([[0, 5], [effectiveWidth, effectiveHeight]])
-    color = d3.scaleOrdinal(["#abc4d6", "#b6abd6","#d6abb3", "#d6abd3"]).domain(["Dry","Snow","Wet or damp","Other"])
+    let color = d3.scaleOrdinal(["#abc4d6", "#b6abd6","#d6abb3", "#d6abd3"]).domain(["Dry","Snow","Wet or damp","Other"])
 
     const {nodes, links} = sankey({
         nodes: graph.nodes.map(d => Object.assign({}, d)),
@@ -1122,7 +772,8 @@ function gen_alluvial_chart() {
 
 // Generate lines chart
 function gen_lines_chart() {
-    // Set margins and width and height
+    let key;
+// Set margins and width and height
     let margin = def_i4.margin;
     let width = def_i4.width,
         height = def_i4.height,
@@ -1131,9 +782,9 @@ function gen_lines_chart() {
 
     // Get custom dataset
     let filteredAccidentData = accident_data.filter(d => {
-        return d.vehicle_year !== "" && d.vehicle_year!==-1
+        return d.vehicle_year !== "" && d.vehicle_year !== -1
             && d.make !== "" && d.make !== "Not known"
-            && d.number_of_casualties!="" && d.number_of_casualties>=0;
+            && d.number_of_casualties !== "" && d.number_of_casualties >= 0;
     })
 
     worst_makes = (Array.from(
@@ -1151,10 +802,10 @@ function gen_lines_chart() {
 
     let yearCasualtiesByMake = new Map()
 
-    var maxY = 0;
-    var min_year = 2020;
-    var max_year = 0;
-    for (var key of worst_makes){ // for each make
+    let maxY = 0;
+    let min_year = 2020;
+    let max_year = 0;
+    for (let key of worst_makes){ // for each make
         let dict = {};
         let dicts = [];
         for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
@@ -1180,7 +831,7 @@ function gen_lines_chart() {
     min_Vehicle_Year = min_year - 1;
     max_Vehicle_Year = max_year;
 
-    for (var key of yearCasualtiesByMake.keys()){
+    for (key of yearCasualtiesByMake.keys()){
         let updated_values = yearCasualtiesByMake.get(key).filter(d => d.Year >= min_Vehicle_Year && d.Year <= max_Vehicle_Year);
         yearCasualtiesByMake.set(key,updated_values);
     }
@@ -1191,7 +842,7 @@ function gen_lines_chart() {
     let j = 0;
     let distance = Math.round((max_Vehicle_Year - min_Vehicle_Year + 1)/10)
     for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
-        if (j%distance==0)
+        if (j%distance === 0)
             yearsTicks.push(i);
         j++;
     }
@@ -1360,6 +1011,333 @@ function gen_lines_chart() {
     }
 }
 
+//Generate radial chart
+function gen_radial_chart() {
+    let width = def_i6.width,
+        height = def_i6.height,
+        padding = def_i6.padding;
+
+    let dataset = d3.group(currentAccidentData, d => d.time.slice(0, 2));
+    let keys = Array.from(dataset.keys());
+
+    dataset = new Map([...dataset.entries()].sort());
+
+    let max = d3.max(keys, d => dataset.get(d).length);
+
+    let datasetO = new Map(dataset);
+    let datasetAM = new Map(dataset);
+    let datasetPM = new Map(dataset);
+
+    for (let k of datasetAM.keys()) {
+        if (!(k >= 6 && k <= 20))
+            datasetAM.delete(k);
+    }
+    for (let k of datasetPM.keys()) {
+        if (!(k > 17 || k < 9))
+            datasetPM.delete(k);
+    }
+
+    let datasetPM1st = new Map(datasetPM);
+    let datasetPM2nd = new Map(datasetPM);
+
+    for (let k of datasetPM1st.keys()) {
+        if (k < 18)
+            datasetPM1st.delete(k);
+    }
+    for (let k of datasetPM2nd.keys()) {
+        if (k > 8)
+            datasetPM2nd.delete(k);
+    }
+
+    datasetPM = new Map([...datasetPM1st].concat([...datasetPM2nd]));
+
+    dataset = [datasetAM, datasetPM];
+
+    let radius = (height / 2 - padding * 4);
+
+    let rScale = d3.scaleLinear()
+        .range([0, radius])
+        .domain([0, max]);
+
+    svg_radar_chart = d3.select('#radial_chart')
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height)
+        .attr("class", "svg_group");
+
+    let Format = d3.format('.3s');
+    let angleSlice = Math.PI / 6;
+
+    let g = svg_radar_chart.append('g')
+        .attr('transform', 'translate(' +  (width/2 + padding * 6) + ',' + (height/2) +')');
+
+    let axisGrid = g.append('g')
+        .attr('class', 'axisWrapper');
+
+    axisGrid.selectAll('.levels')
+        .data(d3.range(1, (def_i6.levels + 1)).reverse())
+        .enter()
+        .append('circle')
+        .attr('class', 'gridCircle')
+        .attr('r', d => radius/def_i6.levels * d)
+        .style("fill", "#CDCDCD")
+        .style("stroke", "#CDCDCD")
+        .style("fill-opacity", def_i6.opacity);
+
+    axisGrid.selectAll("#axisLabel")
+        .data(d3.range(1,(def_i6.levels+1)).reverse())
+        .enter()
+        .append("text")
+        .attr("id", "axisLabel")
+        .attr("x", d => d * radius / def_i6.levels + def_i6.labelFactor)
+        .attr("y", 0)
+        .attr("dy", "0.4em")
+        .style("font-size", "10px")
+        .attr("fill", "#737373")
+        .text(d =>Format(max * d/def_i6.levels));
+
+    let axis = axisGrid.selectAll(".axis")
+        .data(hours)
+        .enter()
+        .append("g")
+        .attr("class", "axis");
+
+    //Append the lines
+    axis.append("line")
+        .attr("x1", 0)
+        .attr("y1", 0)
+        .attr("x2", (d,i) => rScale(max * def_i6.labelFactor) * Math.cos(angleSlice*i - Math.PI/2))
+        .attr("y2", (d, i) => rScale(max * def_i6.labelFactor) * Math.sin(angleSlice*i - Math.PI/2))
+        .attr("class", "line")
+        .style("stroke", "white")
+        .style("stroke-width", d => (d === 3)?'0px':"2px");
+
+    //Append the labels at each axis
+    axis.append("text")
+        .attr("class", "legend")
+        .style("font-size", "11px")
+        .attr("text-anchor", "middle")
+        .attr("dy", "0.35em")
+        .attr("x", (d, i) => rScale(max * def_i6.labelFactor) * Math.cos(angleSlice*i - Math.PI/2))
+        .attr("y", (d, i) => rScale(max * def_i6.labelFactor) * Math.sin(angleSlice*i - Math.PI/2))
+        .text(d => (d === 0 || d === 3)?'':d);
+
+    let angles = d3.scaleLinear()
+        .domain([0, 12])
+        .range([0, 2 * Math.PI]);
+
+    let radarLine = d3.lineRadial()
+        .angle((d) => angles(+d[0]))
+        .radius(d => rScale(d[1].length))
+        .curve(d3.curveCardinalOpen);
+
+    let blobWrapper = g.selectAll(".radarWrapper")
+        .data(dataset)
+        .enter()
+        .append("g")
+        .attr("class", "radarWrapper");
+
+    blobWrapper.append("path")
+        .attr("id", "radarStroke")
+        .attr("d", radarLine)
+        .style("stroke-width", 2 + "px")
+        .style("stroke", (d, i) => (i===0)? "#af7070" : "#44849a")
+        .style("fill", "none");
+
+    blobWrapper.selectAll("#radarCircle")
+        .data(datasetO)
+        .enter()
+        .append("circle")
+        .attr("id", "radarCircle")
+        .attr("r", 3)
+        .attr("cx", (d) => rScale(d[1].length) * Math.cos(angles(+d[0]%12) - Math.PI/2))
+        .attr("cy", (d) => rScale(d[1].length) * Math.sin(angles(+d[0]%12) - Math.PI/2))
+        .style("fill", (d) => (+d[0] >= 7 && +d[0] <= 19)? "#ac5454" : "#2e657d")
+        .style("fill-opacity", 0.8)
+        .append('title')
+        .text(d => d[1].length);
+
+    let legendG = svg_radar_chart.append('g')
+        .attr('class', 'legend');
+
+    legendG.append('circle')
+        .attr('cx', 3 * padding)
+        .attr('cy', padding)
+        .attr('transform', translation(padding, height - 8*padding))
+        .attr('r', 7)
+        .style('fill', "#ac5454");
+
+    legendG.append('text')
+        .attr('x', 6 * padding)
+        .attr('y', height - 6.5*padding)
+        .style('fill', '#575757')
+        .style("font-size", "16px")
+        .text('AM');
+
+    legendG.append('circle')
+        .attr('cx', 3 * padding)
+        .attr('cy', padding)
+        .attr('transform', translation(padding, height - 5*padding))
+        .attr('r', 7)
+        .style('fill', "#2e657d");
+
+    legendG.append('text')
+        .attr('x', 6 * padding)
+        .attr('y', height - 3.5*padding)
+        .style('fill', '#575757')
+        .style("font-size", "16px")
+        .text('PM');
+}
+
+//Generate calendar heatmap
+function gen_calendar_heatmap() {
+    let width = def_i5.width,
+        height = def_i5.height,
+        padding = def_i5.padding;
+
+    let dataset = d3.rollup(currentAccidentData, v => v.length, d=> d.year, d=>d.date.slice(5));
+    dataset = unroll(dataset, ['year', 'date', 'value']);
+    dataset = d3.rollup(dataset, v=>d3.mean(v, v=> v.value), d=> d.date);
+
+    let min = d3.min(dataset, d => d[1]),
+        max = d3.max(dataset, d => d[1]);
+
+    let colors = d3.scaleLinear()
+        .domain([min, max])
+        .range(["#8ecefd","#f88b9d"]);
+
+    let monthScale = d3.scaleBand()
+        .domain(ticksMonth)
+        .range([padding, width - padding])
+
+    let xAxis = d3.axisTop()
+        .scale(monthScale)
+        .tickValues(ticksMonth)
+        .tickFormat((d, i) => months[i]);
+
+    let dayScale = d3.scaleBand()
+        .domain(ticksDays)
+        .range([padding, height - padding * 2]);
+
+    let yAxis = d3.axisLeft()
+        .scale(dayScale);
+
+    svg_calendar_heatmap = d3.select("#calendar_heatmap")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("class", "svg_group");
+
+    svg_calendar_heatmap.append('filter')
+        .attr('id','desaturate')
+        .append('feColorMatrix')
+        .attr('type','matrix')
+        .attr('values',"0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0.3333 0.3333 0.3333 0 0 0 0 0 1 0");
+
+    let g = svg_calendar_heatmap.append("g")
+        .attr("class", "svg_group");
+
+    g.append("g")
+        .attr("id", "xAxis")
+        .call(xAxis)
+        .attr("transform", translation(0,padding))
+        .selectAll("text")
+        .attr("color", "black")
+        .attr("font-size", "12")
+        .on('mouseover', (e, d) => {
+            if(!selected_month_dow.has(d)) {
+                d3.select(e.target)
+                    .style("font-size", "18");
+            }
+        })
+        .on('mouseout', (e, d) => {
+            if(!selected_month_dow.has(d)) {
+                d3.select(e.target)
+                    .style("font-size", "12");
+            }
+        });
+
+    g.append("g")
+        .attr("id", "yAxis")
+        .call(yAxis)
+        .attr("transform", translation(padding,0))
+        .selectAll("text")
+        .attr("color", "black")
+        .attr("font-size", "11");
+
+    let rects = g.append("g")
+        .attr("class", "rects");
+
+    rects.selectAll("rect")
+        .data(dataset)
+        .join("rect")
+        .attr("class", "rects")
+        .attr("width", monthScale.bandwidth())
+        .attr("height", dayScale.bandwidth())
+        .attr("x", d => monthScale(getMonth(d[0])))
+        .attr("y", d => dayScale(getDay(d[0])))
+        .attr("fill", d => colors(d[1]))
+        .append("title")
+        .text(d => d);
+
+    let legend_g = svg_calendar_heatmap
+        .append('g')
+        .attr('id', 'legend-svg-calendar')
+        .attr('width', def_i5.legendWidth)
+        .attr('height', def_i5.legendHeight)
+        .attr('transform', translation(-padding, height - padding));
+
+    let countScale = d3.scaleLinear()
+        .domain([min, max])
+        .range([0, def_i5.legendWidth])
+
+    //Calculate the variables for the temp gradient
+    let numStops = 4;
+    let countRange = countScale.domain();
+    countRange[2] = countRange[1] - countRange[0];
+    let countPoint = [];
+    for(let i = 0; i < numStops; i++) {
+        countPoint.push(i * countRange[2]/(numStops-1) + countRange[0]);
+    }
+
+    //Create the gradient
+    legend_g.append("defs")
+        .append("linearGradient")
+        .attr("id", "legend-map-calendar")
+        .attr("y1", "0%").attr("x1", "0%")
+        .attr("y2", "0%").attr("x2", "100%")
+        .selectAll("stop")
+        .data(d3.range(numStops))
+        .enter()
+        .append("stop")
+        .attr("offset", function(d,i) {
+            return countScale( countPoint[i] )/ def_i5.legendWidth;
+        })
+        .attr("stop-color", function(d,i) {
+            return colors( countPoint[i] );
+        });
+
+    legend_g.append("rect")
+        .attr("id", "legendRectHeatmap")
+        .attr("x", width/2 - def_i5.legendWidth/2 + padding)
+        .attr("y", 0)
+        .attr("width", def_i5.legendWidth)
+        .attr("height", 10)
+        .style("fill", "url(#legend-map-calendar)");
+
+    //Define legend axis
+    let legendAxis = d3.axisTop()
+        .ticks(4)
+        .tickFormat(d3.format(".0s"))
+        .scale(countScale);
+
+    //Set up legend axis
+    legend_g.append("g")
+        .attr("id", "legend-axis-heatmap")
+        .attr("transform", translation(width/2 - def_i5.legendWidth/2 + padding, 0))
+        .call(legendAxis);
+}
+
 // Generate unit chart
 function gen_unit_chart() {
     // Check if already generated
@@ -1413,9 +1391,6 @@ function gen_unit_chart() {
         .attr("transform", d => translation(xScale(d), 0))
         .attr('width', xScale.bandwidth())
         .attr('height', effectiveHeight)
-        .on('mouseover', (d) => {
-            // console.log(d.target)
-        })
         .append("svg:image")
         .attr("class", "lane-image")
         .attr("xlink:href", "data/road-urban.svg")
@@ -1424,7 +1399,7 @@ function gen_unit_chart() {
         .attr('transform', translation(-xScale.bandwidth(), 0) + ", scale(3,1)")
         .attr("preserveAspectRatio", "none")
 
-    let nCars = carNumber;
+    let nCars = def_i7.carNumber;
 
     // Add cars groups
     g.selectAll('.unit-road')
@@ -1435,7 +1410,7 @@ function gen_unit_chart() {
 
     let totalNum = d3.sum(usedData, v => v.value);
     if (totalNum < nCars) nCars = Math.round(totalNum);
-    let carMargin = (xScale.bandwidth() - carSize)/8;
+    let carMargin = (xScale.bandwidth() - def_i7.carSize)/8;
 
     // FIXME: Check if any value is bigger than 0.85 since it goes behind the chart
 
@@ -1444,11 +1419,11 @@ function gen_unit_chart() {
         let x = xScale.bandwidth()/2;
 
         if (i % 2 === 0) x += carMargin;
-        else x += 0 - carSize - carMargin;
+        else x += 0 - def_i7.carSize - carMargin;
 
-        let y = Math.floor(i / 2) * (carSize+carPadding) + (carSize * partialNumber + carPadding);
-        if (position === "top") { y = effectiveHeight + carSize; }
-        else if (position === "bottom") { y = -carSize; }
+        let y = Math.floor(i / 2) * (def_i7.carSize+def_i7.carPadding) + (def_i7.carSize * partialNumber + def_i7.carPadding);
+        if (position === "top") { y = effectiveHeight + def_i7.carSize; }
+        else if (position === "bottom") { y = -def_i7.carSize; }
         return translation(x, y) + ", scale(1,-1)";
     }
 
@@ -1467,8 +1442,8 @@ function gen_unit_chart() {
                 .data([[i, 1, speedIndex]])
                 .attr('class', 'car')
                 .attr("xlink:href", "data/car_2.png")
-                .attr('width', carSize)
-                .attr('height', carSize)
+                .attr('width', def_i7.carSize)
+                .attr('height', def_i7.carSize)
                 .attr('transform', d => getTranslateCar(d, ""))
             i++;
         }
@@ -1484,8 +1459,8 @@ function gen_unit_chart() {
             .data([[i, partialNumber, speedIndex]])
             .attr('class', 'car')
             .attr("xlink:href", "data/car_2.png")
-            .attr('width', carSize)
-            .attr('height', carSize)
+            .attr('width', def_i7.carSize)
+            .attr('height', def_i7.carSize)
             .attr('transform', d => getTranslateCar(d, ""))
             .style('clip-path', "inset(0 0 " + ((1-partialNumber)*100).toString() + "% 0)")
 
@@ -1512,16 +1487,16 @@ function gen_unit_chart() {
 
     // Add speed limits
     {
-        let signMargin = (xScale.bandwidth() - speedSignSize)/2;
+        let signMargin = (xScale.bandwidth() - def_i7.speedSignSize)/2;
         topGroup.append('g')
             .attr('class', ' speed-signs')
             .selectAll('.speed_signs')
             .data(speedLimits)
             .join('svg:image')
             .attr("class", "speed-sign")
-            .attr("transform", d => translation(xScale(d) + signMargin, margin.top - speedSignSize - speedSignMargin))
-            .attr('width', speedSignSize)
-            .attr('height', speedSignSize)
+            .attr("transform", d => translation(xScale(d) + signMargin, margin.top - def_i7.speedSignSize - def_i7.speedSignMargin))
+            .attr('width', def_i7.speedSignSize)
+            .attr('height', def_i7.speedSignSize)
             .attr("xlink:href", d => "data/speed-signs/" + d + ".svg")
             .attr("preserveAspectRatio", "none")
 
@@ -1532,7 +1507,7 @@ function gen_unit_chart() {
 
     // Add urban/rural options
     {
-        let optionMargin = (xScale.bandwidth() - roadOptionSize)/2;
+        let optionMargin = (xScale.bandwidth() - def_i7.roadOptionSize)/2;
 
         topGroup.append('g')
             .attr('class', ' road-options')
@@ -1546,8 +1521,8 @@ function gen_unit_chart() {
             .append('svg:image')
             .attr("class", "road-urban clickable")
             .attr("id", d => "road-urban-" + d)
-            .attr('width', roadOptionSize)
-            .attr('height', roadOptionSize)
+            .attr('width', def_i7.roadOptionSize)
+            .attr('height', def_i7.roadOptionSize)
             .attr("transform", translation(optionMargin, 0))
             .attr("xlink:href", "data/road-option/urban.png")
             .attr("preserveAspectRatio", "none")
@@ -1563,9 +1538,9 @@ function gen_unit_chart() {
             .append('svg:image')
             .attr("class", "road-rural clickable")
             .attr("id", d => "road-rural-" + d)
-            .attr('width', roadOptionSize)
-            .attr('height', roadOptionSize)
-            .attr("transform", translation(optionMargin, roadOptionSize + roadOptionPadding))
+            .attr('width', def_i7.roadOptionSize)
+            .attr('height', def_i7.roadOptionSize)
+            .attr("transform", translation(optionMargin, def_i7.roadOptionSize + def_i7.roadOptionPadding))
             .attr("xlink:href", "data/road-option/rural.png")
             .attr("preserveAspectRatio", "none")
             .style("outline", "1px solid black")
@@ -1585,14 +1560,11 @@ function gen_unit_chart() {
             .transition()
             .delay(3000)
             .duration(d => {
-                let height = (effectiveHeight + carSize) - ((carSize + carPadding) * Math.floor(d[0]/2) + (carSize * d[1] + carPadding));
-                return height / carSpeed[d[2]];
+                let height = (effectiveHeight + def_i7.carSize) - ((def_i7.carSize + def_i7.carPadding) * Math.floor(d[0]/2) + (def_i7.carSize * d[1] + def_i7.carPadding));
+                return height / def_i7.carSpeed[d[2]];
             })
             .ease(d3.easeLinear)
             .attr('transform', d => getTranslateCar(d, "top"))
-            .on('interrupt', (d) => {
-                // console.log(d);
-            })
             // Return to line below
             .transition()
             .duration(1)
@@ -1603,25 +1575,22 @@ function gen_unit_chart() {
             .duration(1000)
             .ease(d3.easeLinear)
             .duration(d => {
-                let height = (carSize + carPadding) * Math.floor(d[0]/2) + (carSize * d[1] + carPadding) + carSize;
-                return height / carSpeed[d[2]];
+                let height = (def_i7.carSize + def_i7.carPadding) * Math.floor(d[0]/2) + (def_i7.carSize * d[1] + def_i7.carPadding) + def_i7.carSize;
+                return height / def_i7.carSpeed[d[2]];
             })
             .attr('transform', d => getTranslateCar(d, ""))
-            .on('interrupt', (d) => {
-                // console.log(d);
-            })
             .on("end", () => {
                 if (rerun) return;
 
                 rerun = true;
-                setTimeout(animateCars, timeBetweenCarTransitions);
+                setTimeout(animateCars, def_i7.timeBetweenCarTransitions);
             })
     }
 
     // Make interval for animation
     new Promise(function () {
         animateCars();
-    }).then(r => {});
+    }).then(() => {});
 
     // Add legend for car value
     {
@@ -1630,17 +1599,17 @@ function gen_unit_chart() {
             .attr("transform", translation(0, margin.top + effectiveHeight))
             .attr("class", "legend_group");
 
-        let leftMarginLegend = effectiveWidth / 2 - carScaleSize;
+        let leftMarginLegend = effectiveWidth / 2 - def_i7.carScaleSize;
 
         g_legend.append('svg:image')
             .attr("class", "car_scale")
-            .attr("transform", d => translation(leftMarginLegend, margin.bottom / 2 - carScaleSize / 2))
-            .attr('width', carScaleSize)
-            .attr('height', carScaleSize)
+            .attr("transform", d => translation(leftMarginLegend, margin.bottom / 2 - def_i7.carScaleSize / 2))
+            .attr('width', def_i7.carScaleSize)
+            .attr('height', def_i7.carScaleSize)
             .attr("xlink:href", "data/car_2.png")
 
         g_legend.append('text')
-            .attr("transform", d => translation(leftMarginLegend + carScaleSize,
+            .attr("transform", d => translation(leftMarginLegend + def_i7.carScaleSize,
                 margin.bottom / 2))
             .html(' - ' + d3.format('.2s')(carValue))
     }
@@ -1886,39 +1855,84 @@ function preparePyramidEvent() {
     }
 }
 
+//Click on alluvial label
+function prepareAlluvialEvent() {
+
+    svg_alluvial_chart.select("g").select("#nodes_label").selectAll("text").on("click", (event, datum) => {
+        dispatch.call("alluvialEvent", this, {event: event, datum: datum});
+    });
+
+    dispatch.on("alluvialEvent", function(args) {
+        let event = args.event;
+
+        let selectedLabel = event.target.innerHTML;
+
+        // Check if already selected
+        if (selectedAlluvialLabels.has(selectedLabel)) {
+            // Unselect
+            selectedAlluvialLabels.delete(selectedLabel);
+            Object.keys(isDirty).map(function(key, index) {
+                if (key !== "3") isDirty[key] = true;
+            });
+
+            // Change stroke to unselected
+            d3.select(event.target)
+               .style("font-weight", "normal");
+
+        }
+        else {
+            // Select
+            selectedAlluvialLabels.add(selectedLabel);
+            Object.keys(isDirty).map(function(key, index) {
+                if (key !== "3") isDirty[key] = true;
+            });
+
+            // Change stroke to selected
+            d3.select(event.target)
+            .style("font-weight", "bold");
+        }
+
+        // Update all idioms
+        setTimeout(function(){ updateIdioms(); }, 0)
+
+        
+    });
+
+}
+
 //Click on heatmap
 function prepareHeatmapEvent() {
     svg_calendar_heatmap.select('#xAxis')
         .selectAll("text").on('click', (e, d) =>
-            dispatch.call('heatmapEvent', this, {event: e, datum: d})
+        dispatch.call('heatmapEvent', this, {event: e, datum: d})
     );
 
     dispatch.on('heatmapEvent', function(args) {
-       let x = args.datum,
-           event = args.event;
+        let x = args.datum,
+            event = args.event;
 
         if(selected_month_dow.has(x)) {
-           selected_month_dow.delete(x);
-           Object.keys(isDirty).map(function(key, index) {
-               setDirty(true);
-           });
+            selected_month_dow.delete(x);
+            Object.keys(isDirty).map(function(key, index) {
+                setDirty(true);
+            });
 
-           d3.select(event.target)
-               .style("font-weight", "normal")
-               .style("font-size", "12");
-       }
-       else {
-           selected_month_dow.add(x);
-           Object.keys(isDirty).map(function(key, index) {
-               setDirty(true);
-           });
+            d3.select(event.target)
+                .style("font-weight", "normal")
+                .style("font-size", "12");
+        }
+        else {
+            selected_month_dow.add(x);
+            Object.keys(isDirty).map(function(key, index) {
+                setDirty(true);
+            });
 
             d3.select(event.target)
                 .style("font-weight", "bold")
                 .style("font-size", "17");;
         }
 
-       setTimeout(function(){ updateIdioms(); }, 0);
+        setTimeout(function(){ updateIdioms(); }, 0);
     });
 }
 
@@ -1953,51 +1967,6 @@ function prepareUnitEvent() {
         // Update all idioms
         setTimeout(function(){ updateIdioms(); }, 0)
     });
-}
-
-//Click on alluvial label
-function prepareAlluvialEvent() {
-
-    svg_alluvial_chart.select("g").select("#nodes_label").selectAll("text").on("click", (event, datum) => {
-        dispatch.call("alluvialEvent", this, {event: event, datum: datum});
-    });
-
-    dispatch.on("alluvialEvent", function(args) {
-        let event = args.event;
-
-        selectedLabel = event.target.innerHTML;
-
-        // Check if already selected
-        if (selectedAlluvialLabels.has(selectedLabel)) {
-            // Unselect
-            selectedAlluvialLabels.delete(selectedLabel);
-            Object.keys(isDirty).map(function(key, index) {
-                if (key !== "3") isDirty[key] = true;
-            });
-
-            // Change stroke to unselected
-            d3.select(event.target)
-               .style("font-weight", "normal");
-
-        }
-        else {
-            // Select
-            selectedAlluvialLabels.add(selectedLabel);
-            Object.keys(isDirty).map(function(key, index) {
-                if (key !== "3") isDirty[key] = true;
-            });
-
-            // Change stroke to selected
-            d3.select(event.target)
-            .style("font-weight", "bold");
-        }
-
-        // Update all idioms
-        setTimeout(function(){ updateIdioms(); }, 0)
-
-        
-    });
-
 }
 
 // Prepare buttons
@@ -2092,137 +2061,6 @@ function prepareButtons() {
 
 // Update all idioms
 function updateIdioms() {
-
-    function updatePyramidBarChart() {
-        // Set margins and width and height
-        let margin = def_i2.margin;
-        let width = def_i2.width,
-            height = def_i2.height,
-            effectiveWidth = width-margin.left - margin.right,
-            effectiveHeight = height - margin.bottom,
-            regionWidth = (effectiveWidth)/2 - margin.middle;
-
-        // these are the x-coordinates of the y-axes
-        let pointA = regionWidth,
-            pointB = effectiveWidth - regionWidth;
-
-        let groupedByAgeGender = d3.rollup(pyramid_data, v => v.length,
-                d => d.age, d => d.sex);
-
-        // Sort map
-        groupedByAgeGender = new Map(
-            Array.from(groupedByAgeGender)
-                .filter( e => e[0] > 3)
-                .sort( (a,b) => {
-                    return (a[0] > b[0]) ? 1 : ((b[0] > a[0]) ? -1 : 0)
-                }).reverse()
-        );
-
-        // Get max values
-        let maxValue = 0;
-        groupedByAgeGender.forEach( (i, e) => {
-            let tmp = Math.max(...groupedByAgeGender.get(e).values());
-            if (tmp > maxValue) maxValue = tmp;
-        })
-
-        // X scales
-        let xScale = d3.scaleLinear()
-            .domain([0, maxValue])
-            .range([0, regionWidth])
-            .nice();
-
-        // X axis
-        let xAxisLeft = d3.axisBottom()
-            .scale(xScale.copy().range([pointA, 0]))
-            .ticks(4)
-            .tickFormat(d3.format(".2s"));
-
-        let xAxisRight = d3.axisBottom()
-            .scale(xScale)
-            .ticks(4)
-            .tickFormat(d3.format(".2s"));
-
-        // Y scale
-        let yScaleData = ageBands;
-
-        let yScale = d3.scaleBand()
-            .domain(yScaleData)
-            .range([0, effectiveHeight - margin.bottom])
-            .paddingInner(0.2)
-            .paddingOuter(0.2);
-
-        // Y axis
-        let yAxisLeft = d3.axisRight()
-            .scale(yScale)
-            .tickSize(4, 0)
-            .tickPadding(margin.middle - 4)
-            .tickFormat(function(d,i){ return ageBands[i] })
-
-        let yAxisRight = d3.axisLeft()
-            .scale(yScale)
-            .tickSize(4, 0)
-            .tickFormat('');
-
-        svg_pyramid_bar_chart.select('.left-bar')
-            .selectAll('rect')
-            .data(groupedByAgeGender)
-            .join('rect')
-            .attr("class", ".bar.left")
-            .attr('x', 0)
-            .attr('height', yScale.bandwidth())
-            .attr('fill', '#8ECEFD')
-            .transition()
-            .delay(function(d,i){
-                let index = yScaleData.indexOf(d[0]);
-                return 1000 + (index * 200);
-            })
-            .duration(1000)
-            .attr('width', function(d) { return xScale(d[1].get(1)); })
-            .style("stroke-dasharray" , d => dasharray(xScale(d[1].get(1)), yScale.bandwidth()))
-            .select("title")
-            .text(d => d[1].get(1));
-
-        svg_pyramid_bar_chart.select('.right-bar')
-            .selectAll('rect')
-            .data(groupedByAgeGender)
-            .join('rect')
-            .attr("class", ".bar.right")
-            .attr('x', 0)
-            .attr('height', yScale.bandwidth())
-            .attr('fill', '#F88B9D')
-            .transition()
-            .delay(function(d,i) {
-                let index = yScaleData.indexOf(d[0]);
-                return 1000 + (index * 200);
-            })
-            .duration(1000)
-            .attr('width', function(d) { return xScale(d[1].get(2)); })
-            .style("stroke-dasharray" , d => dasharray(xScale(d[1].get(2)), yScale.bandwidth()))
-            .select("title")
-            .text(d => d[1].get(2));
-
-
-        // Draw Axes
-        svg_pyramid_bar_chart.select("#yAxisLeft")
-            .call(yAxisLeft)
-            .selectAll('text')
-            .style('text-anchor', 'middle');
-
-        svg_pyramid_bar_chart.select("#yAxisRight")
-            .call(yAxisRight);
-
-        svg_pyramid_bar_chart.select("#xAxisLeft")
-            .transition()
-            .delay(1000)
-            .duration(2000)
-            .call(xAxisLeft);
-
-        svg_pyramid_bar_chart.select("#xAxisRight")
-            .transition()
-            .delay(1000)
-            .duration(2000)
-            .call(xAxisRight);
-    }
 
     function update_choropleth_map() {
         let width = def_i1.width,
@@ -2343,202 +2181,445 @@ function updateIdioms() {
 
     }
 
-    function update_calendar_heatmap() {
-        function updateHeatmapLegend(min, max, colors) {
-            let countScale = d3.scaleLinear()
-                .domain([min, max])
-                .range([0, def_i5.legendWidth])
+    function update_pyramid_chart() {
+        // Set margins and width and height
+        let margin = def_i2.margin;
+        let width = def_i2.width,
+            height = def_i2.height,
+            effectiveWidth = width-margin.left - margin.right,
+            effectiveHeight = height - margin.bottom,
+            regionWidth = (effectiveWidth)/2 - margin.middle;
 
-            //Calculate the variables for the temp gradient
-            let numStops = 4;
+        // these are the x-coordinates of the y-axes
+        let pointA = regionWidth,
+            pointB = effectiveWidth - regionWidth;
 
-            let countRange = countScale.domain();
-            countRange[2] = countRange[1] - countRange[0];
-            let countPoint = [];
-            for(let i = 0; i < numStops; i++) {
-                countPoint.push(i * countRange[2]/(numStops-1) + countRange[0]);
+        let groupedByAgeGender = d3.rollup(pyramid_data, v => v.length,
+            d => d.age, d => d.sex);
+
+        // Sort map
+        groupedByAgeGender = new Map(
+            Array.from(groupedByAgeGender)
+                .filter( e => e[0] > 3)
+                .sort( (a,b) => {
+                    return (a[0] > b[0]) ? 1 : ((b[0] > a[0]) ? -1 : 0)
+                }).reverse()
+        );
+
+        // Get max values
+        let maxValue = 0;
+        groupedByAgeGender.forEach( (i, e) => {
+            let tmp = Math.max(...groupedByAgeGender.get(e).values());
+            if (tmp > maxValue) maxValue = tmp;
+        })
+
+        // X scales
+        let xScale = d3.scaleLinear()
+            .domain([0, maxValue])
+            .range([0, regionWidth])
+            .nice();
+
+        // X axis
+        let xAxisLeft = d3.axisBottom()
+            .scale(xScale.copy().range([pointA, 0]))
+            .ticks(4)
+            .tickFormat(d3.format(".2s"));
+
+        let xAxisRight = d3.axisBottom()
+            .scale(xScale)
+            .ticks(4)
+            .tickFormat(d3.format(".2s"));
+
+        // Y scale
+        let yScaleData = ageBands;
+
+        let yScale = d3.scaleBand()
+            .domain(yScaleData)
+            .range([0, effectiveHeight - margin.bottom])
+            .paddingInner(0.2)
+            .paddingOuter(0.2);
+
+        // Y axis
+        let yAxisLeft = d3.axisRight()
+            .scale(yScale)
+            .tickSize(4, 0)
+            .tickPadding(margin.middle - 4)
+            .tickFormat(function(d,i){ return ageBands[i] })
+
+        let yAxisRight = d3.axisLeft()
+            .scale(yScale)
+            .tickSize(4, 0)
+            .tickFormat('');
+
+        svg_pyramid_bar_chart.select('.left-bar')
+            .selectAll('rect')
+            .data(groupedByAgeGender)
+            .join('rect')
+            .attr("class", ".bar.left")
+            .attr('x', 0)
+            .attr('height', yScale.bandwidth())
+            .attr('fill', '#8ECEFD')
+            .transition()
+            .delay(function(d,i){
+                let index = yScaleData.indexOf(d[0]);
+                return 1000 + (index * 200);
+            })
+            .duration(1000)
+            .attr('width', function(d) { return xScale(d[1].get(1)); })
+            .style("stroke-dasharray" , d => dasharray(xScale(d[1].get(1)), yScale.bandwidth()))
+            .select("title")
+            .text(d => d[1].get(1));
+
+        svg_pyramid_bar_chart.select('.right-bar')
+            .selectAll('rect')
+            .data(groupedByAgeGender)
+            .join('rect')
+            .attr("class", ".bar.right")
+            .attr('x', 0)
+            .attr('height', yScale.bandwidth())
+            .attr('fill', '#F88B9D')
+            .transition()
+            .delay(function(d,i) {
+                let index = yScaleData.indexOf(d[0]);
+                return 1000 + (index * 200);
+            })
+            .duration(1000)
+            .attr('width', function(d) { return xScale(d[1].get(2)); })
+            .style("stroke-dasharray" , d => dasharray(xScale(d[1].get(2)), yScale.bandwidth()))
+            .select("title")
+            .text(d => d[1].get(2));
+
+
+        // Draw Axes
+        svg_pyramid_bar_chart.select("#yAxisLeft")
+            .call(yAxisLeft)
+            .selectAll('text')
+            .style('text-anchor', 'middle');
+
+        svg_pyramid_bar_chart.select("#yAxisRight")
+            .call(yAxisRight);
+
+        svg_pyramid_bar_chart.select("#xAxisLeft")
+            .transition()
+            .delay(1000)
+            .duration(2000)
+            .call(xAxisLeft);
+
+        svg_pyramid_bar_chart.select("#xAxisRight")
+            .transition()
+            .delay(1000)
+            .duration(2000)
+            .call(xAxisRight);
+    }
+
+    function update_alluvial_chart(){
+        let margin = def_i3.margin;
+        let width = def_i3.width,
+            height = def_i3.height,
+            effectiveWidth = width - margin.left - margin.right,
+            effectiveHeight = height - margin.bottom - margin.top;
+
+        svg_alluvial_chart = d3.select("#alluvial_chart")
+            .select("svg")
+
+        let g = svg_alluvial_chart.select("g");
+
+        let filteredAccidentData = alluvial_data.filter(d => {
+            return d.road_surface !== "" && !isNaN(d.road_surface) && d.road_surface !== -1
+                && d.light !== "" && !isNaN(d.light) && d.light !== -1
+                && d.weather !== "" && !isNaN(d.weather) && d.weather !== -1
+                && d.weather !== 8 && d.weather !== 9;
+        })
+
+        filteredAccidentData = filteredAccidentData.map(function(d){
+            return {
+                road_surface: translations_for_alluvial.Road_Surface_Conditions[d.road_surface],
+                light: translations_for_alluvial.Light_Conditions[d.light],
+                weather: translations_for_alluvial.Weather_Conditions[d.weather],
+                wind: translations_for_alluvial.Weather_Conditions_wind[d.weather]
             }
+        } )
 
-            d3.select("#legend-map-calendar")
-                .attr("y1", "0%").attr("x1", "0%")
-                .attr("y2", "0%").attr("x2", "100%")
-                .selectAll("stop")
-                .data(d3.range(numStops))
-                .enter()
-                .join("stop")
-                .attr("offset", function(d,i) {
-                    return countScale( countPoint[i] )/ def_i5.legendWidth;
-                })
-                .attr("stop-color", function(d,i) {
-                    return colors( countPoint[i] );
-                });
-
-            d3.select("#legendRectHeatmap")
-                .style("fill", "url(#legend-map-calendar)");
-
-            //Define legend axis
-            let legendAxis = d3.axisTop()
-                .ticks(4)
-                .tickFormat(d3.format("0.2s"))
-                .scale(countScale);
-
-            //Set up legend axis
-            d3.select("#legend-axis-heatmap")
-                .transition()
-                .delay(1000)
-                .duration(1000)
-                .call(legendAxis);
-        }
-
-        let width = def_i5.width,
-            height = def_i5.height,
-            padding = def_i5.padding;
-
-        let x_scale = null,
-            y_scale = null,
-            y_domain,
-            x_function = null,
-            y_function = null,
-            values,
-            format_function = null,
-            dataset,
-            min,
-            max,
-            valueOf = null,
-            title = null;
-
-        let years = new Array(0);
-
-        calendar_data.forEach(d => {
-            if(!years.includes(d.year)) {
-                years.push(d.year);
-            }
+        filteredAccidentData = d3.rollup(filteredAccidentData, v => v.length, d => d.road_surface, d => d.light, d => d.weather, d => d.wind)
+        filteredAccidentData = unroll(filteredAccidentData, ['road_surface','light','weather','wind']);
+        filteredAccidentData = d3.csvParse(d3.csvFormat(filteredAccidentData), function(d){
+            return {
+                road_surface: d.road_surface,
+                light: d.light,
+                weather: d.weather,
+                wind: d.wind,
+                value: +d.value
+            };
         });
 
-        if(isOneYear(years)) {
-            dataset = d3.rollup(calendar_data, v => v.length, d=>d.date, d=> d.dow);
-            dataset = unroll(dataset, ['date', 'dow', 'value']);
-            global = dataset;
-            x_scale = d3.scaleBand()
-                .domain(ticksDoW)
-                .range([padding, width - padding]);
+        let keys = filteredAccidentData.columns.slice(0, -1)
 
-            y_scale = d3.scaleBand()
-                .domain(ticksWeekN)
-                .range([padding, height - padding * 2]);
+        let graph = dataToGraph(filteredAccidentData,keys);
+        let sankey = d3.sankey()
+            .nodeSort(function(a, b){
+                return a.name.localeCompare(b.name);})
+            .linkSort(null)
+            .nodeWidth(10)
+            .nodePadding(2)
+            .extent([[0, 5], [effectiveWidth, effectiveHeight]])
+        let color = d3.scaleOrdinal(["#abc4d6", "#b6abd6","#d6abb3", "#d6abd3"]).domain(["Dry","Snow","Wet or damp","Other"])
+        //["#abc4d6", "#d6abb3"]
 
-            y_domain = y_scale.domain().filter((d,i) => !(i%5));
+        const {nodes, links} = sankey({
+            nodes: graph.nodes.map(d => Object.assign({}, d)),
+            links: graph.links.map(d => Object.assign({}, d))});
 
-            x_function = d => d.dow;
-            y_function = d => getWeekNumber(d.date);
-
-            values = ticksMonth;
-            format_function = i => daysOfWeek[i];
-
-            min = d3.min(dataset, d => d.value);
-            max = d3.max(dataset, d => d.value);
-
-            valueOf = d => d.value;
-            title = d => d.date.slice(5) + ', ' + d.value;
-        }
-        else{
-            dataset = d3.rollup(calendar_data, v => v.length, d=> d.year, d=>d.date.slice(5));
-            dataset = unroll(dataset, ['year', 'date', 'value']);
-            dataset = d3.rollup(dataset, v=>d3.mean(v, v=> v.value), d=> d.date);
-
-            x_scale = d3.scaleBand()
-                .domain(ticksMonth)
-                .range([padding, width - padding])
-
-            y_scale = d3.scaleBand()
-                .domain(ticksDays)
-                .range([padding, height - padding * 2]);
-
-            y_domain = y_scale.domain();
-
-            x_function = d => getMonth(d[0]);
-            y_function = d => getDay(d[0]);
-
-            values = ticksDays;
-            format_function = i => months[i];
-
-            min = d3.min(dataset, d => d[1]);
-            max = d3.max(dataset, d => d[1]);
-
-            valueOf = d => d[1];
-            title = d => d;
-        }
-
-        let colors = d3.scaleLinear()
-            .domain([min, max])
-            .range(["#8ecefd","#f88b9d"]);
-
-        let xAxis = d3.axisTop()
-            .scale(x_scale)
-            .tickValues(values)
-            .tickFormat((d, i) => format_function(i));
-
-        let yAxis = d3.axisLeft()
-            .scale(y_scale)
-            .tickValues(y_domain);
-
-        svg_calendar_heatmap.select(".rects")
+        g.select("#nodes_rect")
             .selectAll("rect")
-            .data(dataset)
-            .join("rect")
-            .attr("class", ".rects")
-            .attr("width", x_scale.bandwidth())
-            .attr("height", y_scale.bandwidth())
+            .data(nodes)
             .transition()
-            .delay(300)
+            .delay(1500)
             .duration(1000)
-            .attr("x", d => x_scale(x_function(d)))
-            .attr("y", d => y_scale(y_function(d)))
-            .attr("fill", d => colors(valueOf(d)))
-            .style('filter', d => {
-                if(selected_month_dow.size === 0) {
-                    return '';
-                }
-                return selected_month_dow.has(+x_function(d))?'':'url(#desaturate)'
-            })
+            .attr("x", d => d.x0)
+            .attr("y", d => d.y0)
+            .attr("height", d => d.y1 - d.y0)
+            .attr("width", d => d.x1 - d.x0)
             .select("title")
-            .text(d => title(d));
+            .text(d => `${d.name}\n${d.value.toLocaleString()}`);
 
-        svg_calendar_heatmap.select("#xAxis")
-            .call(xAxis)
-            .attr("transform", translation(0, padding))
+        g.select("#links_path")
+            .attr("fill", "none")
+            .selectAll("path")
+            .data(links)
+            .transition()
+            .delay(1500)
+            .duration(1000)
+            .attr("d", d3.sankeyLinkHorizontal())
+            .attr("stroke", d => color(d.names[0]))
+            .attr("stroke-width", d => d.width)
+            .style("mix-blend-mode", "multiply")
+            .select("title")
+            .text(d => `${d.names.join(" → ")}\n${d.value.toLocaleString()}`);
+
+        g.select("#nodes_label")
+            .style("font", "15px sans-serif")
             .selectAll("text")
-            .attr("color", "black")
-            .attr("font-size", "12")
-            .on('mouseover', (e, d) => {
-                if(!selected_month_dow.has(d)) {
-                    d3.select(e.target)
-                        .style("font-size", "18");
+            .data(nodes)
+            .on("mouseover", function(event,d) {
+                // Check if not selected
+                if (!selectedAlluvialLabels.has(d.name)) {
+                    d3.select(event.target)
+                        .style("font-weight", "bold")
                 }
             })
-            .on('mouseout', (e, d) => {
-                if(!selected_month_dow.has(d)) {
-                    d3.select(e.target)
-                        .style("font-size", "12");
+            .on("mouseout", function(event, d) {
+                // Check if not selected
+                if (!selectedAlluvialLabels.has(d.name)) {
+                    d3.select(event.target)
+                        .style("font-weight", "normal");
                 }
-            });
+            })
+            .transition()
+            .delay(1500)
+            .duration(1000)
+            .attr("x", d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
+            .attr("y", d => (d.y1 + d.y0) / 2)
+            .attr("dy", "0.35em")
+            .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
+            .text(d => d.name)
+            .style("font-weight", function(d){
+                if (selectedAlluvialLabels.has(d.name)) return "bold"
+                else return "normal"
+            })
 
-        svg_calendar_heatmap.select("#yAxis")
-            .call(yAxis)
-            .attr("transform", translation(padding, 0))
-            .selectAll("text")
-            .attr("color", "black")
-            .attr("font-size", "12");
+    }
 
-        updateHeatmapLegend(min, max, colors);
+    function update_line_chart(){
+        // Set margins and width and height
+        let margin = def_i4.margin;
+        let width = def_i4.width,
+            height = def_i4.height,
+            effectiveWidth = width-margin.left - margin.right,
+            effectiveHeight = height - margin.bottom - margin.top;
+
+        // Get custom dataset
+        let filteredAccidentData = other_data.filter(d => {
+            return d.vehicle_year !== "" && d.vehicle_year !== -1
+                && d.make !== "" && d.make !== "Not known"
+                && d.number_of_casualties !== "" && d.number_of_casualties >= 0;
+        })
+
+        worst_makes = (Array.from(
+                d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
+                .sort(function(a, b){return a[1]-b[1]})
+                .reverse()
+                .slice(0,5)
+        ).map(x => x[0]);
+
+
+        let groupedByMakeAndYear = d3.group(filteredAccidentData, d => d.make, d => d.vehicle_year);
+        let min_Vehicle_Year = d3.min(filteredAccidentData, d => d.vehicle_year);
+        let max_Vehicle_Year = d3.max(filteredAccidentData, d => d.vehicle_year);
+
+        let numberOfAccidentsPerYear = d3.rollup(filteredAccidentData, v=> v.length, d=>d.vehicle_year, d=>d.make);
+
+        let yearCasualtiesByMake = new Map()
+
+        var maxY = 0;
+        var min_year = 2020;
+        var max_year = 0;
+        for (var key of worst_makes){ // for each make
+            let dict = {};
+            let dicts = [];
+            for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
+
+                if(groupedByMakeAndYear.get(key).get(i) == null){
+                    dict.Year = i;
+                    dict.n = 0;
+                }
+                else{
+                    max_year = Math.max(max_year,i)
+                    min_year = Math.min(min_year,i);
+                    dict.Year = i;
+                    dict.n = d3.sum(groupedByMakeAndYear.get(key).get(i), d=>d.number_of_casualties)/
+                        numberOfAccidentsPerYear.get(i).get(key);
+                    maxY = ( dict.n > maxY ) ? dict.n : maxY;
+                }
+                dicts.push(dict);
+                dict = {};
+            }
+            yearCasualtiesByMake.set(key, dicts);
+        }
+
+        min_Vehicle_Year = min_year - 1;
+        max_Vehicle_Year = max_year;
+
+        for (var key of yearCasualtiesByMake.keys()){
+            let updated_values = yearCasualtiesByMake.get(key).filter(d => d.Year >= min_Vehicle_Year && d.Year <= max_Vehicle_Year);
+            yearCasualtiesByMake.set(key,updated_values);
+        }
+
+        // set the ranges
+
+        var yearsTicks=[];
+        let j = 0;
+        let distance = Math.round((max_Vehicle_Year - min_Vehicle_Year + 1)/10)
+        for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
+            if (j%distance==0)
+                yearsTicks.push(i);
+            j++;
+        }
+        yearsTicks[0] = min_Vehicle_Year
+        yearsTicks[yearsTicks.length-1] = max_Vehicle_Year
+
+        var yearsDomain=[];
+        for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
+            yearsDomain.push(i);
+        }
+
+        var x = d3.scaleLinear()
+            .domain([min_Vehicle_Year,max_Vehicle_Year])
+            .range([0, effectiveWidth]);
+
+        var y = d3.scaleLinear()
+            .domain([0, maxY])
+            .range([effectiveHeight, 0]);
+
+        var svg = d3.select("#line_chart")
+            .select("svg")
+            .select("g")
+
+        var line = d3.line()
+            .x(function(d) { return x(d.year); })
+            .y(function(d) { return y(d.casualties); });
+
+        var color = d3.scaleOrdinal(d3.schemeCategory10)
+            .domain(worst_makes);
+
+        var makes = color.domain().map(function(name) {
+            return {
+                name: name,
+                values: yearCasualtiesByMake.get(name).map(function(d) {
+                    return {
+                        year: d.Year,
+                        casualties: d.n
+                    };
+                })
+            };
+        });
+        svg.selectAll(".make")
+            .data(makes).select("path")
+            .on('mouseover', mouseover)
+            .on('mousemove', mousemove)
+            .on('mouseout', mouseout)
+            .transition()
+            .delay(1000)
+            .duration(2000)
+            .attr("d", function(d) {
+                return line(d.values);
+            })
+            .style("stroke", function(d) {
+                return color(d.name);
+            })
+
+        svg.select("#xAxis")
+            .transition()
+            .delay(1000)
+            .duration(2000)
+            .call(d3.axisBottom(x).tickValues(yearsTicks).tickFormat(d3.format("d")) );
+
+        svg.select("#yAxis")
+            .call(d3.axisLeft(y));
+
+        var focus = svg.select("#focus")
+
+        var focusText = d3.select("#focus_text")
+
+        svg.selectAll("#dot")
+            .data(worst_makes)
+            .style("fill", function(d){ return color(d)})
+
+        // Add one dot in the legend for each name.
+
+        svg.selectAll("#label")
+            .data(worst_makes)
+            .style("fill", function(d){ return color(d)})
+            .text(function(d){ return d})
+            .attr("text-anchor", "left")
+            .style("alignment-baseline", "middle")
+
+        function mouseover() {
+            focus.style("opacity", 1)
+            focusText.style("opacity",1)
+        }
+
+        function mousemove(event,datum) {
+            // recover coordinate we need
+            const pointer = d3.pointer(event, this);
+            var x0 = x.invert(pointer[0]);
+            var selected_year = yearsDomain[d3.bisectCenter(yearsDomain, x0)];
+            var yvalue = 0;
+            for (var k in datum.values){
+                if (datum.values[k].year === selected_year) {
+                    yvalue = datum.values[k]
+                    break;
+                }
+            }
+            focus.attr("cx", x(selected_year))
+                .attr("cy", y(yvalue.casualties))
+
+            var n = yvalue.casualties.toFixed(2);
+
+            focusText.html(datum.name + ", " + selected_year + " - " + n)
+                .style("left", (focus.node().getBoundingClientRect().x) + "px")
+                .style("top", (focus.node().getBoundingClientRect().y - 28) + "px");
+        }
+
+        function mouseout() {
+            focus.style("opacity", 0)
+            focusText.style("opacity", 0)
+        }
     }
 
     function update_radar_chart() {
         let width = def_i6.width,
             height = def_i6.height,
             padding = def_i6.padding;
-
-
 
         let dataset = d3.group(other_data, d => d.time.slice(0, 2));
 
@@ -2635,7 +2716,193 @@ function updateIdioms() {
             .text(d => d[1].length);
     }
 
-    function updateUnitChart() {
+    function update_calendar_heatmap() {
+        function updateHeatmapLegend(min, max, colors) {
+            let countScale = d3.scaleLinear()
+                .domain([min, max])
+                .range([0, def_i5.legendWidth])
+
+            //Calculate the variables for the temp gradient
+            let numStops = 4;
+
+            let countRange = countScale.domain();
+            countRange[2] = countRange[1] - countRange[0];
+            let countPoint = [];
+            for(let i = 0; i < numStops; i++) {
+                countPoint.push(i * countRange[2]/(numStops-1) + countRange[0]);
+            }
+
+            d3.select("#legend-map-calendar")
+                .attr("y1", "0%").attr("x1", "0%")
+                .attr("y2", "0%").attr("x2", "100%")
+                .selectAll("stop")
+                .data(d3.range(numStops))
+                .enter()
+                .join("stop")
+                .attr("offset", function(d,i) {
+                    return countScale( countPoint[i] )/ def_i5.legendWidth;
+                })
+                .attr("stop-color", function(d,i) {
+                    return colors( countPoint[i] );
+                });
+
+            d3.select("#legendRectHeatmap")
+                .style("fill", "url(#legend-map-calendar)");
+
+            //Define legend axis
+            let legendAxis = d3.axisTop()
+                .ticks(4)
+                .tickFormat(d3.format("0.2s"))
+                .scale(countScale);
+
+            //Set up legend axis
+            d3.select("#legend-axis-heatmap")
+                .transition()
+                .delay(1000)
+                .duration(1000)
+                .call(legendAxis);
+        }
+
+        let width = def_i5.width,
+            height = def_i5.height,
+            padding = def_i5.padding;
+
+        let x_scale = null,
+            y_scale = null,
+            y_domain,
+            x_function = null,
+            y_function = null,
+            values,
+            format_function = null,
+            dataset,
+            min,
+            max,
+            valueOf = null,
+            title = null;
+
+        let years = new Array(0);
+
+        calendar_data.forEach(d => {
+            if(!years.includes(d.year)) {
+                years.push(d.year);
+            }
+        });
+
+        if (isOneYear(years)) {
+            dataset = d3.rollup(calendar_data, v => v.length, d=>d.date, d=> d.dow);
+            dataset = unroll(dataset, ['date', 'dow', 'value']);
+            global = dataset;
+            x_scale = d3.scaleBand()
+                .domain(ticksDoW)
+                .range([padding, width - padding]);
+
+            y_scale = d3.scaleBand()
+                .domain(ticksWeekN)
+                .range([padding, height - padding * 2]);
+
+            y_domain = y_scale.domain().filter((d,i) => !(i%5));
+
+            x_function = d => d.dow;
+            y_function = d => getWeekNumber(d.date);
+
+            values = ticksDoW;
+            format_function = (i) => daysOfWeek[i];
+
+            min = d3.min(dataset, d => d.value);
+            max = d3.max(dataset, d => d.value);
+
+            valueOf = d => d.value;
+            title = d => d.date.slice(5) + ', ' + d.value;
+        }
+        else {
+            dataset = d3.rollup(calendar_data, v => v.length, d=> d.year, d=>d.date.slice(5));
+            dataset = unroll(dataset, ['year', 'date', 'value']);
+            dataset = d3.rollup(dataset, v=>d3.mean(v, v=> v.value), d=> d.date);
+
+            x_scale = d3.scaleBand()
+                .domain(ticksMonth)
+                .range([padding, width - padding])
+
+            y_scale = d3.scaleBand()
+                .domain(ticksDays)
+                .range([padding, height - padding * 2]);
+
+            y_domain = y_scale.domain();
+
+            x_function = d => getMonth(d[0]);
+            y_function = d => getDay(d[0]);
+
+            values = ticksMonth;
+            format_function = i => months[i];
+
+            min = d3.min(dataset, d => d[1]);
+            max = d3.max(dataset, d => d[1]);
+
+            valueOf = d => d[1];
+            title = d => d;
+        }
+
+        let colors = d3.scaleLinear()
+            .domain([min, max])
+            .range(["#8ecefd","#f88b9d"]);
+
+        let xAxis = d3.axisTop()
+            .scale(x_scale)
+            .tickValues(values)
+            .tickFormat((d, i) => format_function(i));
+
+        let yAxis = d3.axisLeft()
+            .scale(y_scale)
+            .tickValues(y_domain);
+
+        svg_calendar_heatmap.select(".rects")
+            .selectAll("rect")
+            .data(dataset)
+            .join("rect")
+            .attr("class", ".rects")
+            .attr("width", x_scale.bandwidth())
+            .attr("height", y_scale.bandwidth())
+            .transition()
+            .delay(300)
+            .duration(1000)
+            .attr("x", d => x_scale(x_function(d)))
+            .attr("y", d => y_scale(y_function(d)))
+            .attr("fill", d => colors(valueOf(d)))
+            .style('filter', d => {
+                if(selected_month_dow.size === 0) {
+                    return '';
+                }
+                return selected_month_dow.has(+x_function(d))?'':'url(#desaturate)'
+            })
+            .select("title")
+            .text(d => title(d));
+
+        svg_calendar_heatmap.select("#xAxis")
+            .call(xAxis);
+
+        svg_calendar_heatmap.select("#yAxis")
+            .call(yAxis);
+
+        svg_calendar_heatmap.selectAll("text")
+            .attr("color", "black")
+            .attr("font-size", "12")
+            .on('mouseover', (e, d) => {
+                if(!selected_month_dow.has(d)) {
+                    d3.select(e.target)
+                        .style("font-size", "18");
+                }
+            })
+            .on('mouseout', (e, d) => {
+                if(!selected_month_dow.has(d)) {
+                    d3.select(e.target)
+                        .style("font-size", "12");
+                }
+            });
+
+        updateHeatmapLegend(min, max, colors);
+    }
+
+    function update_unit_chart() {
         // Get sizes
         let margin = def_i7.margin;
         let width = def_i7.width,
@@ -2676,21 +2943,21 @@ function updateIdioms() {
             .attr("xlink:href", d => "data/road-" + selectedRoadOptions[d] + ".svg")
 
         // Get car values
-        let nCars = carNumber;
+        let nCars = def_i7.carNumber;
         let totalNum = d3.sum(usedData, v => v.value);
         if (totalNum < nCars) nCars = Math.round(totalNum);
-        let carMargin = (xScale.bandwidth() - carSize)/8;
+        let carMargin = (xScale.bandwidth() - def_i7.carSize)/8;
 
         let getTranslateCar = (d, position) => {
             let i = d[0], partialNumber = d[1];
             let x = xScale.bandwidth()/2;
 
             if (i % 2 === 0) x += carMargin;
-            else x += 0 - carSize - carMargin;
+            else x += 0 - def_i7.carSize - carMargin;
 
-            let y = Math.floor(i / 2) * (carSize+carPadding) + (carSize * partialNumber + carPadding);
-            if (position === "top") { y = effectiveHeight + carSize; }
-            else if (position === "bottom") { y = -carSize; }
+            let y = Math.floor(i / 2) * (def_i7.carSize+def_i7.carPadding) + (def_i7.carSize * partialNumber + def_i7.carPadding);
+            if (position === "top") { y = effectiveHeight + def_i7.carSize; }
+            else if (position === "bottom") { y = -def_i7.carSize; }
             return translation(x, y) + ", scale(1,-1)";
         }
 
@@ -2721,8 +2988,8 @@ function updateIdioms() {
                     .data([[i, 1, speedIndex]])
                     .attr('class', 'car')
                     .attr("xlink:href", "data/car_2.png")
-                    .attr('width', carSize)
-                    .attr('height', carSize)
+                    .attr('width', def_i7.carSize)
+                    .attr('height', def_i7.carSize)
                     .attr('transform', d => getTranslateCar(d, "bottom"))
                     .transition()
                     .delay(2000)
@@ -2741,8 +3008,8 @@ function updateIdioms() {
                 .data([[i, partialNumber, speedIndex]])
                 .attr('class', 'car')
                 .attr("xlink:href", "data/car_2.png")
-                .attr('width', carSize)
-                .attr('height', carSize)
+                .attr('width', def_i7.carSize)
+                .attr('height', def_i7.carSize)
                 .style('clip-path', "inset(0 0 " + ((1-partialNumber)*100).toString() + "% 0)")
                 .attr('transform', d => getTranslateCar(d, "bottom"))
                 .transition()
@@ -2767,312 +3034,6 @@ function updateIdioms() {
         }
     }
 
-    function updateLineChart(){
-        // Set margins and width and height
-        let margin = def_i4.margin;
-        let width = def_i4.width,
-            height = def_i4.height,
-            effectiveWidth = width-margin.left - margin.right,
-            effectiveHeight = height - margin.bottom - margin.top;
-
-        // Get custom dataset
-        let filteredAccidentData = other_data.filter(d => {
-            return d.vehicle_year !== "" && d.vehicle_year!==-1
-                && d.make !== "" && d.make !== "Not known"
-                && d.number_of_casualties!="" && d.number_of_casualties>=0;
-        })
-
-        worst_makes = (Array.from(
-            d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
-            .sort(function(a, b){return a[1]-b[1]})
-            .reverse()
-            .slice(0,5)
-            ).map(x => x[0]);
-
-
-        let groupedByMakeAndYear = d3.group(filteredAccidentData, d => d.make, d => d.vehicle_year);
-        let min_Vehicle_Year = d3.min(filteredAccidentData, d => d.vehicle_year);
-        let max_Vehicle_Year = d3.max(filteredAccidentData, d => d.vehicle_year);
-
-        let numberOfAccidentsPerYear = d3.rollup(filteredAccidentData, v=> v.length, d=>d.vehicle_year, d=>d.make);
-
-        let yearCasualtiesByMake = new Map()
-
-        var maxY = 0;
-        var min_year = 2020;
-        var max_year = 0;
-        for (var key of worst_makes){ // for each make
-            let dict = {};
-            let dicts = [];
-            for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
-
-                if(groupedByMakeAndYear.get(key).get(i) == null){
-                    dict.Year = i;
-                    dict.n = 0;
-                }
-                else{
-                    max_year = Math.max(max_year,i)
-                    min_year = Math.min(min_year,i);
-                    dict.Year = i;
-                    dict.n = d3.sum(groupedByMakeAndYear.get(key).get(i), d=>d.number_of_casualties)/
-                                numberOfAccidentsPerYear.get(i).get(key);
-                    maxY = ( dict.n > maxY ) ? dict.n : maxY;
-                }
-                dicts.push(dict);
-                dict = {};
-            }
-            yearCasualtiesByMake.set(key, dicts);
-        }
-
-        min_Vehicle_Year = min_year - 1;
-        max_Vehicle_Year = max_year;
-
-        for (var key of yearCasualtiesByMake.keys()){
-            let updated_values = yearCasualtiesByMake.get(key).filter(d => d.Year >= min_Vehicle_Year && d.Year <= max_Vehicle_Year);
-            yearCasualtiesByMake.set(key,updated_values);
-        }
-
-        // set the ranges
-
-        var yearsTicks=[];
-        let j = 0;
-        let distance = Math.round((max_Vehicle_Year - min_Vehicle_Year + 1)/10)
-        for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
-            if (j%distance==0)
-                yearsTicks.push(i);
-            j++;
-        }
-        yearsTicks[0] = min_Vehicle_Year
-        yearsTicks[yearsTicks.length-1] = max_Vehicle_Year
-
-        var yearsDomain=[];
-        for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
-            yearsDomain.push(i);
-        }
-
-        var x = d3.scaleLinear()
-                .domain([min_Vehicle_Year,max_Vehicle_Year])
-                .range([0, effectiveWidth]);
-
-        var y = d3.scaleLinear()
-                .domain([0, maxY])
-                .range([effectiveHeight, 0]);
-
-        var svg = d3.select("#line_chart")
-                    .select("svg")
-                    .select("g")
-
-        var line = d3.line()
-                    .x(function(d) { return x(d.year); })
-                    .y(function(d) { return y(d.casualties); });
-
-        var color = d3.scaleOrdinal(d3.schemeCategory10)
-                  .domain(worst_makes);
-
-        var makes = color.domain().map(function(name) {
-            return {
-            name: name,
-            values: yearCasualtiesByMake.get(name).map(function(d) {
-                return {
-                year: d.Year,
-                casualties: d.n
-                };
-            })
-            };
-        });
-        svg.selectAll(".make")
-           .data(makes).select("path")
-           .on('mouseover', mouseover)
-           .on('mousemove', mousemove)
-           .on('mouseout', mouseout)
-           .transition()
-           .delay(1000)
-           .duration(2000)
-           .attr("d", function(d) {
-                return line(d.values);
-           })
-           .style("stroke", function(d) {
-                return color(d.name);
-           })
-
-        svg.select("#xAxis")
-            .transition()
-            .delay(1000)
-            .duration(2000)
-            .call(d3.axisBottom(x).tickValues(yearsTicks).tickFormat(d3.format("d")) );
-
-        svg.select("#yAxis")
-        .call(d3.axisLeft(y));
-
-        var focus = svg.select("#focus")
-
-        var focusText = d3.select("#focus_text")
-
-        svg.selectAll("#dot")
-            .data(worst_makes)
-            .style("fill", function(d){ return color(d)})
-
-        // Add one dot in the legend for each name.
-
-        svg.selectAll("#label")
-            .data(worst_makes)
-            .style("fill", function(d){ return color(d)})
-            .text(function(d){ return d})
-            .attr("text-anchor", "left")
-            .style("alignment-baseline", "middle")
-
-        function mouseover() {
-            focus.style("opacity", 1)
-            focusText.style("opacity",1)
-        }
-
-        function mousemove(event,datum) {
-            // recover coordinate we need
-            const pointer = d3.pointer(event, this);
-            var x0 = x.invert(pointer[0]);
-            var selected_year = yearsDomain[d3.bisectCenter(yearsDomain, x0)];
-            var yvalue = 0;
-            for (var k in datum.values){
-                if (datum.values[k].year === selected_year) {
-                    yvalue = datum.values[k]
-                    break;
-                }
-            }
-            focus.attr("cx", x(selected_year))
-                    .attr("cy", y(yvalue.casualties))
-
-            var n = yvalue.casualties.toFixed(2);
-
-            focusText.html(datum.name + ", " + selected_year + " - " + n)
-                        .style("left", (focus.node().getBoundingClientRect().x) + "px")
-                        .style("top", (focus.node().getBoundingClientRect().y - 28) + "px");
-        }
-
-        function mouseout() {
-            focus.style("opacity", 0)
-            focusText.style("opacity", 0)
-        }
-    }
-
-    function updateAlluvialChart(){
-        let margin = def_i3.margin;
-        let width = def_i3.width,
-            height = def_i3.height,
-            effectiveWidth = width - margin.left - margin.right,
-            effectiveHeight = height - margin.bottom - margin.top;
-
-        svg_alluvial_chart = d3.select("#alluvial_chart")
-        .select("svg")
-
-        let g = svg_alluvial_chart.select("g");
-
-        let filteredAccidentData = alluvial_data.filter(d => {
-            return d.road_surface !== "" && !isNaN(d.road_surface) && d.road_surface!=-1
-                && d.light !== "" && !isNaN(d.light) && d.light!=-1
-                && d.weather!="" && !isNaN(d.weather) && d.weather!=-1
-                && d.weather!=8 && d.weather!=9;
-        })
-
-        filteredAccidentData = filteredAccidentData.map(function(d){
-            return {
-                road_surface: translations_for_alluvial.Road_Surface_Conditions[d.road_surface],
-                light: translations_for_alluvial.Light_Conditions[d.light],
-                weather: translations_for_alluvial.Weather_Conditions[d.weather],
-                wind: translations_for_alluvial.Weather_Conditions_wind[d.weather]
-            }
-        } )
-
-        filteredAccidentData = d3.rollup(filteredAccidentData, v => v.length, d => d.road_surface, d => d.light, d => d.weather, d => d.wind)
-        filteredAccidentData = unroll(filteredAccidentData, ['road_surface','light','weather','wind']);
-        filteredAccidentData = d3.csvParse(d3.csvFormat(filteredAccidentData), function(d){
-            return {
-                road_surface: d.road_surface,
-                light: d.light,
-                weather: d.weather,
-                wind: d.wind,
-                value: +d.value
-            };
-        });
-
-        keys = filteredAccidentData.columns.slice(0, -1)
-
-        graph = dataToGraph(filteredAccidentData,keys);
-        sankey = d3.sankey()
-        .nodeSort(function(a, b){
-            return a.name.localeCompare(b.name);})
-        .linkSort(null)
-        .nodeWidth(10)
-        .nodePadding(2)
-        .extent([[0, 5], [effectiveWidth, effectiveHeight]])
-        color = d3.scaleOrdinal(["#abc4d6", "#b6abd6","#d6abb3", "#d6abd3"]).domain(["Dry","Snow","Wet or damp","Other"])
-        //["#abc4d6", "#d6abb3"]
-
-        const {nodes, links} = sankey({
-            nodes: graph.nodes.map(d => Object.assign({}, d)),
-            links: graph.links.map(d => Object.assign({}, d))});
-
-        g.select("#nodes_rect")
-        .selectAll("rect")
-        .data(nodes)
-        .transition()
-        .delay(1500)
-        .duration(1000)
-        .attr("x", d => d.x0)
-        .attr("y", d => d.y0)
-        .attr("height", d => d.y1 - d.y0)
-        .attr("width", d => d.x1 - d.x0)
-        .select("title")
-        .text(d => `${d.name}\n${d.value.toLocaleString()}`);
-
-        g.select("#links_path")
-        .attr("fill", "none")
-        .selectAll("path")
-        .data(links)
-        .transition()
-        .delay(1500)
-        .duration(1000)
-        .attr("d", d3.sankeyLinkHorizontal())
-        .attr("stroke", d => color(d.names[0]))
-        .attr("stroke-width", d => d.width)
-        .style("mix-blend-mode", "multiply")
-        .select("title")
-        .text(d => `${d.names.join(" → ")}\n${d.value.toLocaleString()}`);
-
-        g.select("#nodes_label")
-        .style("font", "15px sans-serif")
-        .selectAll("text")
-        .data(nodes)
-        .on("mouseover", function(event,d) {
-            // Check if not selected
-            if (!selectedAlluvialLabels.has(d.name)) {
-                d3.select(event.target)
-                    .style("font-weight", "bold")
-            }
-        })
-        .on("mouseout", function(event, d) {
-            // Check if not selected
-            if (!selectedAlluvialLabels.has(d.name)) {
-                d3.select(event.target)
-                    .style("font-weight", "normal");
-            }
-        })
-        .transition()
-        .delay(1500)
-        .duration(1000)
-        .attr("x", d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
-        .attr("y", d => (d.y1 + d.y0) / 2)
-        .attr("dy", "0.35em")
-        .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
-        .text(d => d.name)
-        .style("font-weight", function(d){
-            if (selectedAlluvialLabels.has(d.name))
-                return "bold"
-            else
-                return "normal"
-        })
-            
-    }
-
     let count = 0;
     let maxCount = 7;
 
@@ -3094,7 +3055,7 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
-            if (isDirty["2"])  updatePyramidBarChart();
+            if (isDirty["2"])  update_pyramid_chart();
             resolve();
         }).then( r => {
             count++;
@@ -3102,7 +3063,7 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
-            if (isDirty["3"])  updateAlluvialChart();
+            if (isDirty["3"])  update_alluvial_chart();
             resolve();
         }).then( r => {
             count++;
@@ -3110,7 +3071,7 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
-            if (isDirty["4"])  updateLineChart();
+            if (isDirty["4"])  update_line_chart();
             resolve();
         }).then( r => {
             count++;
@@ -3134,7 +3095,7 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
-            if (isDirty["7"])  updateUnitChart();
+            if (isDirty["7"])  update_unit_chart();
             resolve();
         }).then( r => {
             count++;
@@ -3159,76 +3120,89 @@ function getFilteredData() {
     }
 
     let pyramidFilters = filtersPyramidBar();
-
     let alluvialFilters = filtersAlluvialLabel();
-    currentAccidentData = accident_data.filter( d => {
-        let f1 = d.year >= selectedMinYear && d.year <= selectedMaxYear;
 
-        return f1;
+    // 0 - Filter by year
+    currentAccidentData = accident_data.filter( d => d.year >= selectedMinYear && d.year <= selectedMaxYear);
+
+    // 1 - Filter by county
+    let raw_data = currentAccidentData; // Not filtered by county
+    let f1_data = currentAccidentData.filter( d => selectedCounties.size === 0 || selectedCounties.has(d.county));
+
+    // 2/3 - Filter by pyramid sex and age
+    let f123_data = f1_data.filter( d => {
+        let sex = (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
+        let age = (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
+        return sex && age;
+    });
+    let f23_data = raw_data.filter( d => {
+        let sex = (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
+        let age = (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
+        return sex && age;
     });
 
-    map_data = currentAccidentData.filter( d => {
-        let f3 =  (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
-
-        let f4 =  (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
-
-        let f5 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
-                && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
-                && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather));
-
-        let f6 = (selected_month_dow.size === 0) ||
-            (yearRange() > 1 ? selected_month_dow.has(+d.date.slice(5, 7)): selected_month_dow.has(d.dow));
-
-        return f3 && f4 && f5 && f6;
-    });
-
-    pyramid_data = currentAccidentData.filter(d => {
-        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
-
-        let f3 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
-                && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
-                && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather));
-
-        let f6 = (selected_month_dow.size === 0) ||
-            (yearRange() > 1 ? selected_month_dow.has(+d.date.slice(5, 7)): selected_month_dow.has(d.dow));
-
-        return f2 && f3 && f6;
-    });
-
-    calendar_data = currentAccidentData.filter(d => {
-        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
-        let f3 = (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
-        let f4 = (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
-        let f5 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
+    // 4 - Filter by alluvial data
+    let f1234_data = f123_data.filter( d => {
+        let f4 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
             && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
             && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather));
 
-        return f2 && f3 && f4 && f5;
+        return f4;
+    });
+    let f14_data = f1_data.filter( d => {
+        let f4 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
+            && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
+            && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather));
+
+        return f4;
+    });
+    let f234_data = f23_data.filter( d => {
+        let f4 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
+            && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
+            && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather));
+
+        return f4;
     });
 
-    alluvial_data = currentAccidentData.filter( d => {
-        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
-        let f3 = (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
-        let f4 = (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
-        
-        let f6 = (selected_month_dow.size === 0) ||
+    // 5 - Filter by calendar
+    let f12345_data = f1234_data.filter( d => {
+        let f5 = (selected_month_dow.size === 0) ||
             (yearRange() > 1 ? selected_month_dow.has(+d.date.slice(5, 7)): selected_month_dow.has(d.dow));
 
-        return f2 && f3 && f4 && f6;
-    }) 
-
-    other_data = currentAccidentData.filter( d => {
-        let f2 = selectedCounties.size === 0 || selectedCounties.has(d.county);
-        let f3 = (pyramidFilters.sex_filter.size === 0) || pyramidFilters.sex_filter.has(d.sex);
-        let f4 = (pyramidFilters.age_filter.size === 0) || pyramidFilters.age_filter.has(d.age);
-        let f5 = ((alluvialFilters.road_filter.size === 0) || alluvialFilters.road_filter.has(d.road_surface))
-                 && ((alluvialFilters.light_filter.size === 0) || alluvialFilters.light_filter.has(d.light))
-                 && ((alluvialFilters.weather_filter.size === 0) || alluvialFilters.weather_filter.has(d.weather));
-        let f6 = (selected_month_dow.size === 0) ||
+        return f5;
+    });
+    let f1235_data = f123_data.filter( d => {
+        let f5 = (selected_month_dow.size === 0) ||
             (yearRange() > 1 ? selected_month_dow.has(+d.date.slice(5, 7)): selected_month_dow.has(d.dow));
 
-        return f2 && f3 && f4 && f5 && f6;
-    })
+        return f5;
+    });
+    let f145_data = f14_data.filter( d => {
+        let f5 = (selected_month_dow.size === 0) ||
+            (yearRange() > 1 ? selected_month_dow.has(+d.date.slice(5, 7)): selected_month_dow.has(d.dow));
+
+        return f5;
+    });
+    let f2345_data = f234_data.filter( d => {
+        let f5 = (selected_month_dow.size === 0) ||
+            (yearRange() > 1 ? selected_month_dow.has(+d.date.slice(5, 7)): selected_month_dow.has(d.dow));
+
+        return f5;
+    });
+
+    // I1 --> 0, 2, 3, 4, 5
+    // I2 --> 0, 1, 4, 5
+    // I3 --> 0, 1, 2, 3, 5
+    // I4 --> 0, 1, 2, 3, 4, 5
+    // I5 --> 0, 1, 2, 3, 4, 5
+    // I6 --> 0, 1, 2, 3, 4
+    // I7 --> 0, 1, 2, 3, 4, 5
+
+    map_data = f2345_data;
+    pyramid_data = f145_data;
+    alluvial_data = f1235_data;
+    calendar_data = f1234_data;
+    other_data = f12345_data;
 }
 
 /**
@@ -3359,14 +3333,6 @@ function getDay(arg) {
     return parseInt(arg.slice(3));
 }
 
-function leapYearsBetween(start, end) {
-    return leapYearsBefore(end) - leapYearsBefore(start);
-}
-
-function leapYearsBefore(year) {
-    return Math.floor(year/4) - Math.floor(year/100) + Math.floor(year/400)
-}
-
 function yearRange() {
     return selectedMaxYear - selectedMinYear;
 }
@@ -3375,6 +3341,10 @@ function setDirty(value) {
     Object.keys(isDirty).map(function(key, index) {
         isDirty[key] = value;
     });
+}
+
+function range(size, startAt = 0) {
+    return [...Array(size).keys()].map(i => i + startAt);
 }
 
 function dataToGraph(data,keys) {
