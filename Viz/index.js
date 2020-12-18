@@ -503,7 +503,7 @@ function gen_pyramid_bar_chart() {
 
     leftBarGroup.append( 'text' )
         .attr('id','maleLabel')
-        .attr( 'transform', translation(regionWidth - margin.left,10) + ', scale(-1,1)')
+        .attr( 'transform', translation(regionWidth - margin.left,3) + ', scale(-1,1)')
         .style( 'font', '15px sans-serif' )
         .attr( 'text-anchor', 'start' )
         .html("Male")
@@ -528,7 +528,7 @@ function gen_pyramid_bar_chart() {
 
     rightBarGroup.append( 'text' )
         .attr('id','femaleLabel')
-        .attr( 'transform', translation(regionWidth - 3*margin.right,10))
+        .attr( 'transform', translation(regionWidth - 3*margin.right,3))
         .style( 'font', '15px sans-serif' )
         .attr( 'text-anchor', 'start' )
         .html("Female")
@@ -2231,7 +2231,7 @@ function updateIdioms() {
             .tickFormat(d3.format(".2s"));
 
         // Y scale
-        let yScaleData = ageBands;
+        let yScaleData = ageBandsKeys;
 
         let yScale = d3.scaleBand()
             .domain(yScaleData)
@@ -2257,7 +2257,23 @@ function updateIdioms() {
             .join('rect')
             .attr("class", ".bar.left")
             .attr('x', 0)
+            .attr('y', function(d) { return yScale(d[0]); })
             .attr('height', yScale.bandwidth())
+            .on("mouseover", function(event,d) {
+                // Check if not selected
+                if (!selectedPyramidBars.has(barToString(event,d))) {
+                    d3.select(event.target)
+                        .style("stroke", "black")
+                        .style("stroke-width", "0.5");
+                }
+            })
+            .on("mouseout", function(event, d) {
+                // Check if not selected
+                if (!selectedPyramidBars.has(barToString(event,d))) {
+                    d3.select(event.target)
+                        .style("stroke", "transparent");
+                }
+            })
             .attr('fill', '#8ECEFD')
             .transition()
             .delay(function(d,i){
@@ -2276,7 +2292,23 @@ function updateIdioms() {
             .join('rect')
             .attr("class", ".bar.right")
             .attr('x', 0)
+            .attr('y', function(d) { return yScale(d[0]); })
             .attr('height', yScale.bandwidth())
+            .on("mouseover", function(event,d) {
+                // Check if not selected
+                if (!selectedPyramidBars.has(barToString(event,d))) {
+                    d3.select(event.target)
+                        .style("stroke", "black")
+                        .style("stroke-width", "0.5")
+                }
+            })
+            .on("mouseout", function(event, d) {
+                // Check if not selected
+                if (!selectedPyramidBars.has(barToString(event,d))) {
+                    d3.select(event.target)
+                        .style("stroke", "transparent");
+                }
+            })
             .attr('fill', '#F88B9D')
             .transition()
             .delay(function(d,i) {
