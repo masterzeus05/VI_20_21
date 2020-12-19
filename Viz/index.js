@@ -311,7 +311,11 @@ function gen_choropleth_map() {
         .attr("id", "county-select")
         .attr("multiple", "multiple")
         .style("left", 20 + "px")
-        .style("top", (def_i1.margin.top*0.85) + "px");
+        .style("top", (def_i1.margin.top*1.05) + "px")
+        .style("pointer-events", "none")
+        .style("opacity", 0)
+        .style("height", "35%")
+        .attr("is-hidden", 1);
 
     dropdown.selectAll("option")
         .data(countiesDropdown)
@@ -451,6 +455,32 @@ function gen_choropleth_map() {
             }
         });
 
+    // Add button for showing/hiding dropdown
+    g.append("rect")
+        .attr("width", 15)
+        .attr("height", 15)
+        .attr("fill", "gray")
+        .style("stroke", "black")
+        .attr("rx", 2)
+        .attr("transform", translation(20, def_i1.margin.top*0.2))
+        .on("click", () => {
+            let hidden = d3.select("#county-select").attr("is-hidden");
+            if (hidden === "1") {
+                d3.select("#county-select")
+                    .style("pointer-events", "all")
+                    .attr("is-hidden", 0)
+                    .transition()
+                    .style("opacity", 1);
+            } else {
+                d3.select("#county-select")
+                    .style("pointer-events", "none")
+                    .attr("is-hidden", 1)
+                    .transition()
+                    .style("opacity", 0);
+            }
+        })
+        .append("title")
+        .text("Show/Hide selector")
 }
 
 // Generate pyramid bar chart
