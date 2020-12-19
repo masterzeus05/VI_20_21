@@ -301,7 +301,15 @@ function gen_choropleth_map() {
         .attr('id', 'legend-svg')
         .attr('width', def_i1.legendWidth)
         .attr('height', def_i1.legendHeight)
-        .attr('transform', translation(-def_i1.margin.right,def_i1.margin.top));
+        .attr('transform', translation(-def_i1.margin.right,def_i1.margin.top * 1.4));
+
+    legend_g.append("rect")
+        .attr('width', def_i1.legendWidth * 0.9)
+        .attr('height', def_i1.legendHeight * 1.2)
+        .attr("fill", "white")
+        .attr("transform", translation(width - def_i1.margin.right*1.7, -10))
+        .style("outline", "1px solid black")
+
 
     let countScale = d3.scaleLinear()
         .domain([0, max])
