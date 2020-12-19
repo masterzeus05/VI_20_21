@@ -888,7 +888,7 @@ function gen_lines_chart() {
         yearCasualtiesByMake.set(key, dicts);
     }
 
-    min_Vehicle_Year = min_year - 1;
+    min_Vehicle_Year = min_year;
     max_Vehicle_Year = max_year;
 
     for (key of yearCasualtiesByMake.keys()){
@@ -897,17 +897,6 @@ function gen_lines_chart() {
     }
 
     // set the ranges
-
-    var yearsTicks=[];
-    let j = 0;
-    let distance = Math.round((max_Vehicle_Year - min_Vehicle_Year + 1)/10)
-    for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
-        if (j%distance === 0)
-            yearsTicks.push(i);
-        j++;
-    }
-    yearsTicks[0] = min_Vehicle_Year 
-    yearsTicks[yearsTicks.length-1] = max_Vehicle_Year 
 
     var yearsDomain=[];
     for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
@@ -948,11 +937,6 @@ function gen_lines_chart() {
         };
     });
 
-    var make = svg.selectAll(".make")
-    .data(makes)
-    .enter().append("g")
-    .attr("class", "make");
-
     svg.append("text")
     .attr("text-anchor", "end")
     .attr("y", -50)
@@ -975,7 +959,16 @@ function gen_lines_chart() {
     .attr("y", effectiveHeight+35)
     .text("Year");
 
-    make.append("path")
+    // var make = svg.selectAll(".make")
+    // .data(makes)
+    // .enter().append("g")
+    // .attr("class", "make");
+
+    svg.append("g")
+        .attr("id", "makes")
+        .selectAll("path")
+        .data(makes)
+        .join("path")
         .attr("class", "line")
         .attr("d", function(d) {
             return line(d.values);
@@ -990,7 +983,7 @@ function gen_lines_chart() {
     svg.append("g")
        .attr('id', 'xAxis')
        .attr("transform", translation(0,effectiveHeight))
-       .call(d3.axisBottom(x).tickValues(yearsTicks).tickFormat(d3.format("d")) );
+       .call(d3.axisBottom(x).ticks(10).tickFormat(d3.format("d")) );
 
     svg.append("g")
        .attr('id', 'yAxis')
@@ -1013,25 +1006,26 @@ function gen_lines_chart() {
 
     var size = 10
     var legend_x = width - margin.right*9
-    svg.selectAll("mydots")
+    svg.append('g')
+        .attr('id', 'mydots')
+        .selectAll("rect")
         .data(worst_makes)
-        .enter()
-        .append("rect")
+        .join("rect")
         .attr('id', 'dot')
         .attr("x", legend_x)
-        .attr("y", function(d,i){ return 5 + i*(size+5)}) // 100 is where the first dot appears. 25 is the distance between dots
+        .attr("y", function(d,i){ return 5 + i*(size+5)})
         .attr("width", size)
         .attr("height", size)
         .style("fill", function(d){ return color(d)})
 
-    // Add one dot in the legend for each name.
-    svg.selectAll(".mylabels")
+    svg.append('g')
+        .attr('id', 'mylabels')
+        .selectAll("text")
         .data(worst_makes)
-        .enter()
-        .append("text")
+        .join("text")
         .attr('id', 'label')
         .attr("x", legend_x + size*1.2)
-        .attr("y", function(d,i){ return 5 + i*(size+5) + (size/2)}) // 100 is where the first dot appears. 25 is the distance between dots
+        .attr("y", function(d,i){ return 5 + i*(size+5) + (size/2)})
         .style("fill", function(d){ return color(d)})
         .text(function(d){ return d})
         .attr("text-anchor", "left")
@@ -2621,6 +2615,11 @@ function updateIdioms() {
             filteredAccidentData = default_data[4];
         }
 
+        if (filteredAccidentData.length === 0){
+            //FIXME: No data to show
+            alert("No data to show on lines chart :(")
+            return;
+        }
 
         worst_makes = (Array.from(
                 d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
@@ -2664,8 +2663,14 @@ function updateIdioms() {
             yearCasualtiesByMake.set(key, dicts);
         }
 
-        min_Vehicle_Year = min_year - 1;
+        min_Vehicle_Year = min_year;
         max_Vehicle_Year = max_year;
+
+        if(min_Vehicle_Year === max_Vehicle_Year){
+            //FIXME: No data to show
+            alert("No data to show on lines chart :(")
+            return;
+        }
 
         for (var key of yearCasualtiesByMake.keys()){
             let updated_values = yearCasualtiesByMake.get(key).filter(d => d.Year >= min_Vehicle_Year && d.Year <= max_Vehicle_Year);
@@ -2673,17 +2678,6 @@ function updateIdioms() {
         }
 
         // set the ranges
-
-        var yearsTicks=[];
-        let j = 0;
-        let distance = Math.round((max_Vehicle_Year - min_Vehicle_Year + 1)/10)
-        for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
-            if (j%distance==0)
-                yearsTicks.push(i);
-            j++;
-        }
-        yearsTicks[0] = min_Vehicle_Year
-        yearsTicks[yearsTicks.length-1] = max_Vehicle_Year
 
         var yearsDomain=[];
         for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
@@ -2720,8 +2714,11 @@ function updateIdioms() {
                 })
             };
         });
-        svg.selectAll(".make")
-            .data(makes).select("path")
+
+        svg.select("#makes")
+            .selectAll("path")
+            .data(makes)
+            .join("path")
             .on('mouseover', mouseover)
             .on('mousemove', mousemove)
             .on('mouseout', mouseout)
@@ -2734,12 +2731,13 @@ function updateIdioms() {
             .style("stroke", function(d) {
                 return color(d.name);
             })
+            .style("fill","none");
 
         svg.select("#xAxis")
             .transition()
             .delay(1000)
             .duration(2000)
-            .call(d3.axisBottom(x).tickValues(yearsTicks).tickFormat(d3.format("d")) );
+            .call(d3.axisBottom(x).ticks(10).tickFormat(d3.format("d")) );
 
         svg.select("#yAxis")
             .call(d3.axisLeft(y));
@@ -2748,19 +2746,30 @@ function updateIdioms() {
 
         var focusText = d3.select("#focus_text")
 
-        svg.selectAll("#dot")
+        var size = 10
+        var legend_x = width - margin.right*9
+
+        svg.select( '#mydots')
+            .selectAll("rect")
             .data(worst_makes)
+            .join("rect")
+            .attr("x", legend_x)
+            .attr("y", function(d,i){ return 5 + i*(size+5)})
+            .attr("width", size)
+            .attr("height", size)
             .style("fill", function(d){ return color(d)})
 
-        // Add one dot in the legend for each name.
-
-        svg.selectAll("#label")
+        svg.select('#mylabels')
+            .selectAll("text")
             .data(worst_makes)
+            .join("text")
+            .attr("x", legend_x + size*1.2)
+            .attr("y", function(d,i){ return 5 + i*(size+5) + (size/2)})
             .style("fill", function(d){ return color(d)})
             .text(function(d){ return d})
             .attr("text-anchor", "left")
             .style("alignment-baseline", "middle")
-
+        
         function mouseover() {
             focus.style("opacity", 1)
             focusText.style("opacity",1)
