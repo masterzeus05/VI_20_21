@@ -2815,14 +2815,14 @@ function updateIdioms() {
         var focusText = d3.select("#focus_text")
 
         var size = 10
-        var legend_x = width - margin.right*9
+        var legend_x = 20
 
         svg.select( '#mydots')
             .selectAll("rect")
             .data(worst_makes)
             .join("rect")
             .attr("x", legend_x)
-            .attr("y", function(d,i){ return 5 + i*(size+5)})
+            .attr("y", function(d,i){ return 0 + i*(size+5)})
             .attr("width", size)
             .attr("height", size)
             .style("fill", function(d){ return color(d)})
@@ -2832,7 +2832,7 @@ function updateIdioms() {
             .data(worst_makes)
             .join("text")
             .attr("x", legend_x + size*1.2)
-            .attr("y", function(d,i){ return 5 + i*(size+5) + (size/2)})
+            .attr("y", function(d,i){ return 0 + i*(size+5) + (size/2)})
             .style("fill", function(d){ return color(d)})
             .text(function(d){ return d})
             .attr("text-anchor", "left")
