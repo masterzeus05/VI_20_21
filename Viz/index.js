@@ -1013,16 +1013,15 @@ function gen_lines_chart() {
     svg.append("text")
     .attr("text-anchor", "middle")
     .attr("font-size",20)
-    .style("font-weight", "bold")
     .attr("y", -13)
     .attr("x", effectiveWidth/2)
     .text("Makes with more casualties");
 
     svg.append("text")
-    .attr("text-anchor", "end")
-    .attr("x", width/2 - 20)
+    .attr("text-anchor", "middle")
+    .attr("x", effectiveWidth/2)
     .attr("y", effectiveHeight+35)
-    .text("Year");
+    .text("Vehicle Year");
 
     svg.append("g")
         .attr("id", "makes")
@@ -1065,7 +1064,7 @@ function gen_lines_chart() {
         .style("opacity", 0)
 
     var size = 10
-    var legend_x = width - margin.right*9
+    var legend_x = 20
     svg.append('g')
         .attr('id', 'mydots')
         .selectAll("rect")
@@ -1073,7 +1072,7 @@ function gen_lines_chart() {
         .join("rect")
         .attr('id', 'dot')
         .attr("x", legend_x)
-        .attr("y", function(d,i){ return 5 + i*(size+5)})
+        .attr("y", function(d,i){ return 0 + i*(size+5)})
         .attr("width", size)
         .attr("height", size)
         .style("fill", function(d){ return color(d)})
@@ -1085,7 +1084,7 @@ function gen_lines_chart() {
         .join("text")
         .attr('id', 'label')
         .attr("x", legend_x + size*1.2)
-        .attr("y", function(d,i){ return 5 + i*(size+5) + (size/2)})
+        .attr("y", function(d,i){ return 0 + i*(size+5) + (size/2)})
         .style("fill", function(d){ return color(d)})
         .text(function(d){ return d})
         .attr("text-anchor", "left")
@@ -2810,6 +2809,9 @@ function updateIdioms() {
             .call(d3.axisBottom(x).ticks(10).tickFormat(d3.format("d")) );
 
         svg.select("#yAxis")
+            .transition()
+            .delay(1000)
+            .duration(2000)
             .call(d3.axisLeft(y));
 
         var focus = svg.select("#focus")
