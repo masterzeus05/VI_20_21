@@ -1014,10 +1014,10 @@ function gen_lines_chart() {
     .text("Makes with more casualties");
 
     svg.append("text")
-    .attr("text-anchor", "end")
-    .attr("x", width/2 - 20)
+    .attr("text-anchor", "middle")
+    .attr("x", effectiveWidth/2)
     .attr("y", effectiveHeight+35)
-    .text("Year");
+    .text("Vehicle Year");
 
     svg.append("g")
         .attr("id", "makes")
