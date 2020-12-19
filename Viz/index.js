@@ -1,3 +1,5 @@
+let test;
+
 let accident_data = null;
 let uk_data = null;
 
@@ -875,20 +877,44 @@ function gen_lines_chart() {
             && d.number_of_casualties !== "" && d.number_of_casualties >= 0;
     })
 
-    default_data[4] = filteredAccidentData;
+    //
 
-    worst_makes = (Array.from(
-        d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
-          .sort(function(a, b){return a[1]-b[1]})
-          .reverse()
-          .slice(0,5)
-        ).map(x => x[0]);
+    console.time("test");
+    let valueByMakeYear = d3.rollup(filteredAccidentData, v => {
+        let a = unroll(d3.rollup(v, v => v.length, v => v.number_of_casualties), ["casualties"]);
+        let b = d3.sum(a, a => a.value);
+        return [d3.mean(a, a => a.casualties/a.value), b];
+    }, d => d.make, d => d.vehicle_year);
+    test = valueByMakeYear
+    console.log(valueByMakeYear);
 
-    let groupedByMakeAndYear = d3.group(filteredAccidentData, d => d.make, d => d.vehicle_year);
+    let helper = unroll(valueByMakeYear, ["make", "vehicle_year"])
+    let worst_makes = Array.from(d3.rollup(helper,
+            v => [d3.mean(v, d => d.value[0]), d3.sum(v, v => v.value[1])],
+            d => d.make))
+        .filter( d => d[1][1] >= 10000)
+        .sort(function(a, b){return b[1][0]-a[1][0]})
+        .slice(0,5)
+        .map(d => d[0])
+
+    default_data[4] = [valueByMakeYear, worst_makes];
+
+    console.timeEnd("test");
+
+    // worst_makes = (Array.from(
+    //     d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
+    //       .sort(function(a, b){return a[1]-b[1]})
+    //       .reverse()
+    //       .slice(0,5)
+    //     ).map(x => x[0]);
+
+    // let groupedByMakeAndYear = d3.group(filteredAccidentData, d => d.make, d => d.vehicle_year);
     let min_Vehicle_Year = d3.min(filteredAccidentData, d => d.vehicle_year);
     let max_Vehicle_Year = d3.max(filteredAccidentData, d => d.vehicle_year);
 
-    let numberOfAccidentsPerYear = d3.rollup(filteredAccidentData, v=> v.length, d=>d.vehicle_year, d=>d.make);
+    // let numberOfAccidentsPerYear = d3.rollup(filteredAccidentData, v=> v.length, d=>d.vehicle_year, d=>d.make);
+
+    //
 
     let yearCasualtiesByMake = new Map()
 
@@ -900,7 +926,7 @@ function gen_lines_chart() {
         let dicts = [];
         for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
 
-            if(groupedByMakeAndYear.get(key).get(i) == null){
+            if(valueByMakeYear.get(key).get(i) == null){
                 dict.Year = i;
                 dict.n = 0;
             }
@@ -908,8 +934,7 @@ function gen_lines_chart() {
                 max_year = Math.max(max_year,i)
                 min_year = Math.min(min_year,i);
                 dict.Year = i;
-                dict.n = d3.sum(groupedByMakeAndYear.get(key).get(i), d=>d.number_of_casualties)/
-                            numberOfAccidentsPerYear.get(i).get(key);
+                dict.n = valueByMakeYear.get(key).get(i)[0];
                 maxY = ( dict.n > maxY ) ? dict.n : maxY;
             }
             dicts.push(dict);
@@ -988,11 +1013,6 @@ function gen_lines_chart() {
     .attr("x", width/2 - 20)
     .attr("y", effectiveHeight+35)
     .text("Year");
-
-    // var make = svg.selectAll(".make")
-    // .data(makes)
-    // .enter().append("g")
-    // .attr("class", "make");
 
     svg.append("g")
         .attr("id", "makes")
@@ -1102,10 +1122,9 @@ function gen_radial_chart() {
         padding = def_i6.padding;
 
     let dataset = d3.group(currentAccidentData, d => d.time.slice(0, 2));
+    dataset = new Map([...dataset.entries()].sort());
     default_data[5] = dataset;
     let keys = Array.from(dataset.keys());
-
-    dataset = new Map([...dataset.entries()].sort());
 
     let max = d3.max(keys, d => dataset.get(d).length);
 
@@ -2634,22 +2653,26 @@ function updateIdioms() {
             effectiveHeight = height - margin.bottom - margin.top;
 
         // Get custom dataset
-        let filteredAccidentData
+        let filteredAccidentData;
+        let worst_makes
         if (!hasReset) {
             filteredAccidentData = other_data.filter(d => {
                 return d.vehicle_year !== "" && d.vehicle_year !== -1
                     && d.make !== "" && d.make !== "Not known"
                     && d.number_of_casualties !== "" && d.number_of_casualties >= 0;
             })
+
+            if (filteredAccidentData.length === 0){
+                //FIXME: No data to show
+                return;
+            }
+
+
         } else {
             filteredAccidentData = default_data[4];
         }
 
-        if (filteredAccidentData.length === 0){
-            //FIXME: No data to show
-            alert("No data to show on lines chart :(")
-            return;
-        }
+        console.time("line-data")
 
         worst_makes = (Array.from(
                 d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
@@ -2658,12 +2681,13 @@ function updateIdioms() {
                 .slice(0,5)
         ).map(x => x[0]);
 
-
         let groupedByMakeAndYear = d3.group(filteredAccidentData, d => d.make, d => d.vehicle_year);
         let min_Vehicle_Year = d3.min(filteredAccidentData, d => d.vehicle_year);
         let max_Vehicle_Year = d3.max(filteredAccidentData, d => d.vehicle_year);
 
         let numberOfAccidentsPerYear = d3.rollup(filteredAccidentData, v=> v.length, d=>d.vehicle_year, d=>d.make);
+
+        console.timeEnd("line-data")
 
         let yearCasualtiesByMake = new Map()
 
@@ -2698,7 +2722,6 @@ function updateIdioms() {
 
         if(min_Vehicle_Year === max_Vehicle_Year){
             //FIXME: No data to show
-            alert("No data to show on lines chart :(")
             return;
         }
 
@@ -2841,6 +2864,7 @@ function updateIdioms() {
         let dataset;
         if (!hasReset) {
             dataset = d3.group(other_data, d => d.time.slice(0, 2));
+            dataset = new Map([...dataset.entries()].sort());
         } else {
             dataset = default_data[5];
         }
@@ -2853,8 +2877,6 @@ function updateIdioms() {
         }
 
         let keys = Array.from(dataset.keys());
-
-        dataset = new Map([...dataset.entries()].sort());
 
         let max = d3.max(keys, d => dataset.get(d).length);
 
@@ -3275,11 +3297,15 @@ function updateIdioms() {
     }
 
     new Promise(function(resolve, reject) {
+        console.time("getData")
         getFilteredData();
+        console.timeEnd("getData")
         resolve();
     }).then(function(val) {
         new Promise(function(resolve, reject) {
+            console.time("choropleth")
             if (isDirty["1"])  update_choropleth_map();
+            console.timeEnd("choropleth")
             resolve();
         }).then( r => {
             count++;
@@ -3287,7 +3313,9 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
+            console.time("pyramid")
             if (isDirty["2"])  update_pyramid_chart();
+            console.timeEnd("pyramid")
             resolve();
         }).then( r => {
             count++;
@@ -3295,7 +3323,9 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
+            console.time("alluvial")
             if (isDirty["3"])  update_alluvial_chart();
+            console.timeEnd("alluvial")
             resolve();
         }).then( r => {
             count++;
@@ -3303,7 +3333,9 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
+            console.time("line")
             if (isDirty["4"])  update_line_chart();
+            console.timeEnd("line")
             resolve();
         }).then( r => {
             count++;
@@ -3311,7 +3343,9 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
+            console.time("radar")
             if (isDirty["5"])  update_radar_chart();
+            console.timeEnd("radar")
             resolve();
         }).then( r => {
             count++;
@@ -3319,7 +3353,9 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
+            console.time("calendar")
             if (isDirty["6"])  update_calendar_heatmap();
+            console.timeEnd("calendar")
             resolve();
         }).then( r => {
             count++;
@@ -3327,7 +3363,9 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
+            console.time("unit")
             if (isDirty["7"])  update_unit_chart();
+            console.timeEnd("unit")
             resolve();
         }).then( r => {
             count++;
