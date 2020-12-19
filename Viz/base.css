@@ -123,3 +123,10 @@ div.tooltip {
 .clickable {
     cursor: pointer;
 }
+
+/* Select */
+select {
+    position: absolute;
+    display: block;
+    height: 42pt;
+}

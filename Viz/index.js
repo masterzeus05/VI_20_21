@@ -6,6 +6,8 @@ let pyramid_data = null;
 let alluvial_data = null;
 let calendar_data = null;
 let other_data = null;
+let default_data = {};
+let hasReset = false;
 
 let svg_choropleth_map;
 let svg_pyramid_bar_chart = null;
@@ -24,6 +26,8 @@ let selectedMinYear, selectedMaxYear;
 let selectedRoadOptions = {};
 let currentAccidentData = null;
 let isDirty = {1: false, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false};
+
+let countiesDropdown;
 
 let ageBandsKeys = Object.keys(translations.Age_Band_of_Driver)
     .filter( (k) => k > 3)
@@ -189,7 +193,12 @@ function getData() {
         other_data = data;
 
         d3.json("data/uk_topo.json").then(function(topology) {
-            uk_data = topology;
+            let features = topojson.feature(topology, topology.objects.lad).features
+            uk_data = features;
+
+            countiesDropdown = features.map( d => {
+                return {id: getCountyId(d), name: getCountyName(d) }
+            }).sort( (a,b) => a.name.localeCompare(b.name));
 
             processData();
         });
@@ -288,12 +297,48 @@ function gen_choropleth_map() {
             d => d.county);
     groupedByCounties.delete('NaN');
 
+    default_data[1] = groupedByCounties;
+
     let max = Math.max(...groupedByCounties.values());
 
     // Gets choropleth color scale
     let colorScaleMap = d3.scaleLinear()
         .domain([0, max])
         .range(['rgba(255, 170, 170, 1)', 'rgba(255, 21, 21, 1)']);
+
+    // Add dropdown
+    let dropdown = d3.select("#choropleth_map").append("select")
+        .attr("id", "county-select")
+        .attr("multiple", "multiple")
+        .style("left", 20 + "px")
+        .style("top", (def_i1.margin.top*0.85) + "px");
+
+    dropdown.selectAll("option")
+        .data(countiesDropdown)
+        .enter()
+        .append("option")
+        .attr("id", function (d) { return "C" + d.id; })
+        .attr("value", function (d) { return d.id; })
+        .text(function (d) {
+            return d.name; // capitalize 1st letter
+        })
+        .on("mousedown", (event) => {
+            let el = event.target;
+            let countyId = el.value;
+            let node = svg_choropleth_map.select("#C" + countyId).node();
+            dispatch.call("countyEvent", this, {event: {target: node}, datum: { properties: {LAD13CDO: countyId} } });
+
+            if (el.tagName.toLowerCase() === 'option' && el.parentNode.hasAttribute('multiple')) {
+                event.preventDefault();
+
+                // Get current scroll
+                let scrollTop = el.parentNode.scrollTop;
+
+                setTimeout(() => el.parentNode.scrollTo(0, scrollTop), 0);
+
+                return false;
+            }
+        });
 
     // Add legend
     let legend_g = svg_choropleth_map
@@ -307,8 +352,9 @@ function gen_choropleth_map() {
         .attr('width', def_i1.legendWidth * 0.9)
         .attr('height', def_i1.legendHeight * 1.2)
         .attr("fill", "white")
+        .attr("rx", 10)
         .attr("transform", translation(width - def_i1.margin.right*1.7, -10))
-        .style("outline", "1px solid black")
+        .style("stroke", "black")
 
 
     let countScale = d3.scaleLinear()
@@ -365,9 +411,10 @@ function gen_choropleth_map() {
     // Display the map
     // Add counties
     g.selectAll("path")
-        .data(topojson.feature(uk_data, uk_data.objects.lad).features)
+        .data(uk_data)
         .enter().append("path")
         .attr("d", path)
+        .attr("id", d => "C" + getCountyId(d))
         .attr("fill", function (d) {
             if (!groupedByCounties.has(getCountyId(d)) || groupedByCounties.get(getCountyId(d)) === undefined) {
                 return "grey";
@@ -428,6 +475,8 @@ function gen_pyramid_bar_chart() {
     // Get custom dataset
     let groupedByAgeGender = d3.rollup(accident_data, v => v.length, d => d.age, d => d.sex);
     groupedByAgeGender.delete("");
+
+    default_data[2] = groupedByAgeGender;
 
     // Sort map
     groupedByAgeGender = new Map(
@@ -676,6 +725,8 @@ function gen_alluvial_chart() {
     let keys = ['road_surface','light','weather','wind', 'value']
     filteredAccidentData = unroll(filteredAccidentData, keys);
 
+    default_data[3] = filteredAccidentData;
+
     let graph = dataToGraph(filteredAccidentData,keys.slice(0, -1));
     let sankey = d3.sankey()
                .nodeSort(function(a, b){return a.name.localeCompare(b.name);})
@@ -794,6 +845,8 @@ function gen_lines_chart() {
             && d.make !== "" && d.make !== "Not known"
             && d.number_of_casualties !== "" && d.number_of_casualties >= 0;
     })
+
+    default_data[4] = filteredAccidentData;
 
     worst_makes = (Array.from(
         d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
@@ -1026,6 +1079,7 @@ function gen_radial_chart() {
         padding = def_i6.padding;
 
     let dataset = d3.group(currentAccidentData, d => d.time.slice(0, 2));
+    default_data[5] = dataset;
     let keys = Array.from(dataset.keys());
 
     dataset = new Map([...dataset.entries()].sort());
@@ -1206,6 +1260,7 @@ function gen_calendar_heatmap() {
     let dataset = d3.rollup(currentAccidentData, v => v.length, d=> d.year, d=>d.date.slice(5));
     dataset = unroll(dataset, ['year', 'date', 'value']);
     dataset = d3.rollup(dataset, v=>d3.mean(v, v=> v.value), d=> d.date);
+    default_data[6] = dataset;
 
     let min = d3.min(dataset, d => d[1]),
         max = d3.max(dataset, d => d[1]);
@@ -1371,6 +1426,8 @@ function gen_unit_chart() {
             if (a.speed_limit > b.speed_limit) return 1;
             return -1;
         });
+
+    default_data[7] = unrolledData;
 
     let usedData = unrolledData.filter( d => d.area === 1);
 
@@ -1767,6 +1824,11 @@ function prepareCountyEvent() {
                 .style("stroke-width", "0.5");
         }
 
+        // Toggle option selection
+        let option = d3.select("option#C" + id).node();
+        if (option.hasAttribute('selected')) option.removeAttribute('selected');
+        else option.setAttribute('selected', '');
+
         // Update all idioms
         setTimeout(function(){ updateIdioms(); }, 0)
     })
@@ -2137,8 +2199,14 @@ function updateIdioms() {
             .projection(projection);
 
         let g = svg_choropleth_map.select("g");
-        let groupedByCounties = d3.rollup(map_data, v => v.length, d => d.county);
-        groupedByCounties.delete('NaN');
+
+        let groupedByCounties;
+        if (!hasReset) {
+            groupedByCounties = d3.rollup(map_data, v => v.length, d => d.county);
+            groupedByCounties.delete('NaN');
+        } else {
+            groupedByCounties = default_data[1];
+        }
 
         let max = Math.max(...groupedByCounties.values());
         let min = Math.min(...groupedByCounties.values());
@@ -2253,17 +2321,22 @@ function updateIdioms() {
         let pointA = regionWidth,
             pointB = effectiveWidth - regionWidth;
 
-        let groupedByAgeGender = d3.rollup(pyramid_data, v => v.length,
-            d => d.age, d => d.sex);
+        let groupedByAgeGender;
+        if (!hasReset) {
+            groupedByAgeGender = d3.rollup(pyramid_data, v => v.length,
+                d => d.age, d => d.sex);
 
-        // Sort map
-        groupedByAgeGender = new Map(
-            Array.from(groupedByAgeGender)
-                .filter( e => e[0] > 3)
-                .sort( (a,b) => {
-                    return (a[0] > b[0]) ? 1 : ((b[0] > a[0]) ? -1 : 0)
-                }).reverse()
-        );
+            // Sort map
+            groupedByAgeGender = new Map(
+                Array.from(groupedByAgeGender)
+                    .filter( e => e[0] > 3)
+                    .sort( (a,b) => {
+                        return (a[0] > b[0]) ? 1 : ((b[0] > a[0]) ? -1 : 0)
+                    }).reverse()
+            );
+        } else {
+            groupedByAgeGender = default_data[2];
+        }
 
         // Get max values
         let maxValue = 0;
@@ -2415,37 +2488,32 @@ function updateIdioms() {
 
         let g = svg_alluvial_chart.select("g");
 
-        let filteredAccidentData = alluvial_data.filter(d => {
-            return d.road_surface !== "" && !isNaN(d.road_surface) && d.road_surface !== -1
-                && d.light !== "" && !isNaN(d.light) && d.light !== -1
-                && d.weather !== "" && !isNaN(d.weather) && d.weather !== -1
-                && d.weather !== 8 && d.weather !== 9;
-        })
+        let filteredAccidentData;
+        let keys = ['road_surface','light','weather','wind', 'value']
+        if (!hasReset) {
+            filteredAccidentData = alluvial_data.filter(d => {
+                return d.road_surface !== "" && !isNaN(d.road_surface) && d.road_surface !== -1
+                    && d.light !== "" && !isNaN(d.light) && d.light !== -1
+                    && d.weather !== "" && !isNaN(d.weather) && d.weather !== -1
+                    && d.weather !== 8 && d.weather !== 9;
+            })
 
-        filteredAccidentData = filteredAccidentData.map(function(d){
-            return {
-                road_surface: translations_for_alluvial.Road_Surface_Conditions[d.road_surface],
-                light: translations_for_alluvial.Light_Conditions[d.light],
-                weather: translations_for_alluvial.Weather_Conditions[d.weather],
-                wind: translations_for_alluvial.Weather_Conditions_wind[d.weather]
-            }
-        } )
+            filteredAccidentData = filteredAccidentData.map(function(d){
+                return {
+                    road_surface: translations_for_alluvial.Road_Surface_Conditions[d.road_surface],
+                    light: translations_for_alluvial.Light_Conditions[d.light],
+                    weather: translations_for_alluvial.Weather_Conditions[d.weather],
+                    wind: translations_for_alluvial.Weather_Conditions_wind[d.weather]
+                }
+            } )
 
-        filteredAccidentData = d3.rollup(filteredAccidentData, v => v.length, d => d.road_surface, d => d.light, d => d.weather, d => d.wind)
-        filteredAccidentData = unroll(filteredAccidentData, ['road_surface','light','weather','wind']);
-        filteredAccidentData = d3.csvParse(d3.csvFormat(filteredAccidentData), function(d){
-            return {
-                road_surface: d.road_surface,
-                light: d.light,
-                weather: d.weather,
-                wind: d.wind,
-                value: +d.value
-            };
-        });
+            filteredAccidentData = d3.rollup(filteredAccidentData, v => v.length, d => d.road_surface, d => d.light, d => d.weather, d => d.wind)
+            filteredAccidentData = unroll(filteredAccidentData, keys);
+        } else {
+            filteredAccidentData = default_data[3];
+        }
 
-        let keys = filteredAccidentData.columns.slice(0, -1)
-
-        let graph = dataToGraph(filteredAccidentData,keys);
+        let graph = dataToGraph(filteredAccidentData,keys.slice(0, -1));
         let sankey = d3.sankey()
             .nodeSort(function(a, b){
                 return a.name.localeCompare(b.name);})
@@ -2529,11 +2597,17 @@ function updateIdioms() {
             effectiveHeight = height - margin.bottom - margin.top;
 
         // Get custom dataset
-        let filteredAccidentData = other_data.filter(d => {
-            return d.vehicle_year !== "" && d.vehicle_year !== -1
-                && d.make !== "" && d.make !== "Not known"
-                && d.number_of_casualties !== "" && d.number_of_casualties >= 0;
-        })
+        let filteredAccidentData
+        if (!hasReset) {
+            filteredAccidentData = other_data.filter(d => {
+                return d.vehicle_year !== "" && d.vehicle_year !== -1
+                    && d.make !== "" && d.make !== "Not known"
+                    && d.number_of_casualties !== "" && d.number_of_casualties >= 0;
+            })
+        } else {
+            filteredAccidentData = default_data[4];
+        }
+
 
         worst_makes = (Array.from(
                 d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
@@ -2712,7 +2786,12 @@ function updateIdioms() {
             height = def_i6.height,
             padding = def_i6.padding;
 
-        let dataset = d3.group(other_data, d => d.time.slice(0, 2));
+        let dataset;
+        if (!hasReset) {
+            dataset = d3.group(other_data, d => d.time.slice(0, 2));
+        } else {
+            dataset = default_data[5];
+        }
 
         for(let i = 0; i<24; i++) {
             let formattedNumber = ('0' + i).slice(-2);
@@ -3001,17 +3080,22 @@ function updateIdioms() {
             effectiveWidth = width-margin.left - margin.right,
             effectiveHeight = height - margin.top - margin.bottom;
 
-        let rolledData = d3.rollup(other_data, v => v.length,
-            d => d.area, d => d.speed_limit);
+        let unrolledData;
+        if (!hasReset) {
+            let rolledData = d3.rollup(other_data, v => v.length,
+                d => d.area, d => d.speed_limit);
 
-        let unrolledData = unroll(rolledData, ['area','speed_limit']);
-        unrolledData = unrolledData.filter( d => {
-            return d.area !== 3 && d.speed_limit >= 20;
-        })
-            .sort( (a,b) => {
-                if (a.speed_limit > b.speed_limit) return 1;
-                return -1;
-            });
+            unrolledData = unroll(rolledData, ['area','speed_limit']);
+            unrolledData = unrolledData.filter( d => {
+                return d.area !== 3 && d.speed_limit >= 20;
+            })
+                .sort( (a,b) => {
+                    if (a.speed_limit > b.speed_limit) return 1;
+                    return -1;
+                });
+        } else {
+            unrolledData = default_data[7];
+        }
 
         let usedData = unrolledData.filter( (d,i) => {
             let selected = selectedRoadOptions[d.speed_limit];
@@ -3131,6 +3215,7 @@ function updateIdioms() {
     function updateDirty() {
         if (count !== maxCount) return;
         setDirty(false);
+        hasReset = false;
     }
 
     new Promise(function(resolve, reject) {
@@ -3199,14 +3284,14 @@ function updateIdioms() {
 function getFilteredData() {
 
     // Check if filters reset
-    if (currentAccidentData.length === 0) {
-        // setDirty(false);
+    if (currentAccidentData.length === 0 || areFiltersEmpty()) {
         currentAccidentData = accident_data;
         map_data = currentAccidentData;
         pyramid_data = currentAccidentData;
         calendar_data = currentAccidentData;
         alluvial_data = currentAccidentData;
         other_data = currentAccidentData;
+        hasReset = true;
         return;
     }
 
@@ -3436,6 +3521,12 @@ function setDirty(value) {
 
 function range(size, startAt = 0) {
     return [...Array(size).keys()].map(i => i + startAt);
+}
+
+function areFiltersEmpty() {
+    return selectedCounties.size === 0 && selectedPyramidBars.size === 0 &&
+        selectedAlluvialLabels.size === 0 && selected_month_dow.size === 0 &&
+        selectedMinYear === minYearAccidentData && selectedMaxYear === maxYearAccidentData;
 }
 
 function dataToGraph(data,keys) {
