@@ -160,7 +160,7 @@ getData();
 
 // Gets data from dataset
 function getData() {
-    d3.dsv(";", "data/dataset_2005-2010_zip.csv", function(d) {
+    d3.dsv(";", "data/dataset_2010s_zip.csv", function(d) {
         return {
             // Accident_Severity: +d.Accident_Severity,
             age: +d.Age_Band_of_Driver,
@@ -476,8 +476,6 @@ function gen_pyramid_bar_chart() {
     let groupedByAgeGender = d3.rollup(accident_data, v => v.length, d => d.age, d => d.sex);
     groupedByAgeGender.delete("");
 
-    default_data[2] = groupedByAgeGender;
-
     // Sort map
     groupedByAgeGender = new Map(
         Array.from(groupedByAgeGender)
@@ -487,6 +485,7 @@ function gen_pyramid_bar_chart() {
             }).reverse()
     );
 
+    default_data[2] = groupedByAgeGender;
 
     // Get max values
     let maxValue = 0;
@@ -2105,6 +2104,17 @@ function prepareButtons() {
             setDirty(true);
         }
 
+        // Scroll to top - county dropdown
+        setTimeout(() => d3.select("#county-select").node().scrollTo(0, 0), 100);
+        d3.select("#county-select")
+            .selectAll("option")
+            .filter(d => {
+                if (d === null) return false;
+                return selectedCounties.has(d.id);
+            })
+            .node()
+            .removeAttribute('selected');
+
         // Unselect counties
         svg_choropleth_map.selectAll("path")
             .filter(d => {
@@ -2531,6 +2541,7 @@ function updateIdioms() {
         g.select("#nodes_rect")
             .selectAll("rect")
             .data(nodes)
+            .join("rect")
             .transition()
             .delay(1500)
             .duration(1000)
@@ -2545,6 +2556,7 @@ function updateIdioms() {
             .attr("fill", "none")
             .selectAll("path")
             .data(links)
+            .join("path")
             .transition()
             .delay(1500)
             .duration(1000)
@@ -2559,6 +2571,7 @@ function updateIdioms() {
             .style("font", "15px sans-serif")
             .selectAll("text")
             .data(nodes)
+            .join("text")
             .on("mouseover", function(event,d) {
                 // Check if not selected
                 if (!selectedAlluvialLabels.has(d.name)) {
@@ -2985,9 +2998,13 @@ function updateIdioms() {
             title = d => d.date.slice(5) + ', ' + d.value;
         }
         else {
-            dataset = d3.rollup(calendar_data, v => v.length, d=> d.year, d=>d.date.slice(5));
-            dataset = unroll(dataset, ['year', 'date', 'value']);
-            dataset = d3.rollup(dataset, v=>d3.mean(v, v=> v.value), d=> d.date);
+            if (!hasReset) {
+                dataset = d3.rollup(calendar_data, v => v.length, d=> d.year, d=>d.date.slice(5));
+                dataset = unroll(dataset, ['year', 'date', 'value']);
+                dataset = d3.rollup(dataset, v=>d3.mean(v, v=> v.value), d=> d.date);
+            } else {
+                dataset = default_data[6];
+            }
 
             x_scale = d3.scaleBand()
                 .domain(ticksMonth)
