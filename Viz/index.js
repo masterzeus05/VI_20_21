@@ -141,7 +141,7 @@ let def_i7 = {
         left: 0
     },
     width: 350,
-    height: 800,
+    height: 818,
     // Car and speed limit signs options
     carNumber: 40,
     carSize: 25,
@@ -886,18 +886,18 @@ function gen_lines_chart() {
         return [d3.mean(a, a => a.casualties/a.value), b];
     }, d => d.make, d => d.vehicle_year);
     test = valueByMakeYear
-    console.log(valueByMakeYear);
+    // console.log(valueByMakeYear);
 
     let helper = unroll(valueByMakeYear, ["make", "vehicle_year"])
     let worst_makes = Array.from(d3.rollup(helper,
             v => [d3.mean(v, d => d.value[0]), d3.sum(v, v => v.value[1])],
             d => d.make))
-        .filter( d => d[1][1] >= 10000)
+        .filter( d => d[1][1] >= filteredAccidentData.length*0.001)
         .sort(function(a, b){return b[1][0]-a[1][0]})
         .slice(0,5)
-        .map(d => d[0])
+        .map(d => d[0]);
 
-    default_data[4] = [valueByMakeYear, worst_makes];
+    default_data[4] = [valueByMakeYear, worst_makes, filteredAccidentData];
 
     console.timeEnd("test");
 
@@ -1771,18 +1771,6 @@ function gen_unit_chart() {
                 .html('- Rural')
         }
     }
-
-
-    // Y scales
-    // let yScale = d3.scaleLinear()
-    //     .domain(yScaleData)
-    //     .range([0, effectiveHeight - margin.bottom])
-    //     .paddingInner(0.2)
-    //     .paddingOuter(0.2);
-
-    // FIXME: Add legend for mph, urban and rural?
-    // FIXME: Add axis to the right?
-
 }
 
 // Generate year slider
@@ -2149,14 +2137,24 @@ function prepareButtons() {
 
         // Scroll to top - county dropdown
         setTimeout(() => d3.select("#county-select").node().scrollTo(0, 0), 100);
-        d3.select("#county-select")
+
+        // Unselect options
+        let countiesToUnselect = d3.select("#county-select")
             .selectAll("option")
             .filter(d => {
                 if (d === null) return false;
                 return selectedCounties.has(d.id);
-            })
-            .node()
-            .removeAttribute('selected');
+            });
+        if (!countiesToUnselect.empty()) {
+            countiesToUnselect.each( (d) => d3.select("option#C" + d.id).node().removeAttribute('selected'))
+        }
+
+        // Close dropdown
+        d3.select("#county-select")
+            .style("pointer-events", "none")
+            .attr("is-hidden", 1)
+            .transition()
+            .style("opacity", 0);
 
         // Unselect counties
         svg_choropleth_map.selectAll("path")
@@ -2654,38 +2652,44 @@ function updateIdioms() {
 
         // Get custom dataset
         let filteredAccidentData;
-        let worst_makes
+        let worst_makes, valueByMakeYear;
+
+        console.time("line-data")
         if (!hasReset) {
             filteredAccidentData = other_data.filter(d => {
                 return d.vehicle_year !== "" && d.vehicle_year !== -1
                     && d.make !== "" && d.make !== "Not known"
                     && d.number_of_casualties !== "" && d.number_of_casualties >= 0;
-            })
+            });
 
             if (filteredAccidentData.length === 0){
                 //FIXME: No data to show
                 return;
             }
 
+            valueByMakeYear = d3.rollup(filteredAccidentData, v => {
+                let a = unroll(d3.rollup(v, v => v.length, v => v.number_of_casualties), ["casualties"]);
+                let b = d3.sum(a, a => a.value);
+                return [d3.mean(a, a => a.casualties/a.value), b];
+            }, d => d.make, d => d.vehicle_year);
+
+            let helper = unroll(valueByMakeYear, ["make", "vehicle_year"])
+            worst_makes = Array.from(d3.rollup(helper,
+                v => [d3.mean(v, d => d.value[0]), d3.sum(v, v => v.value[1])],
+                d => d.make))
+                .filter( d => d[1][1] >= filteredAccidentData.length*0.001)
+                .sort(function(a, b){return b[1][0]-a[1][0]})
+                .slice(0,5)
+                .map(d => d[0]);
 
         } else {
-            filteredAccidentData = default_data[4];
+            valueByMakeYear = default_data[4][0];
+            worst_makes = default_data[4][1];
+            filteredAccidentData = default_data[4][2];
         }
 
-        console.time("line-data")
-
-        worst_makes = (Array.from(
-                d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
-                .sort(function(a, b){return a[1]-b[1]})
-                .reverse()
-                .slice(0,5)
-        ).map(x => x[0]);
-
-        let groupedByMakeAndYear = d3.group(filteredAccidentData, d => d.make, d => d.vehicle_year);
         let min_Vehicle_Year = d3.min(filteredAccidentData, d => d.vehicle_year);
         let max_Vehicle_Year = d3.max(filteredAccidentData, d => d.vehicle_year);
-
-        let numberOfAccidentsPerYear = d3.rollup(filteredAccidentData, v=> v.length, d=>d.vehicle_year, d=>d.make);
 
         console.timeEnd("line-data")
 
@@ -2699,7 +2703,7 @@ function updateIdioms() {
             let dicts = [];
             for (i = min_Vehicle_Year; i <= max_Vehicle_Year; i++){
 
-                if(groupedByMakeAndYear.get(key).get(i) == null){
+                if(valueByMakeYear.get(key).get(i) == null){
                     dict.Year = i;
                     dict.n = 0;
                 }
@@ -2707,8 +2711,7 @@ function updateIdioms() {
                     max_year = Math.max(max_year,i)
                     min_year = Math.min(min_year,i);
                     dict.Year = i;
-                    dict.n = d3.sum(groupedByMakeAndYear.get(key).get(i), d=>d.number_of_casualties)/
-                        numberOfAccidentsPerYear.get(i).get(key);
+                    dict.n = valueByMakeYear.get(key).get(i)[0];
                     maxY = ( dict.n > maxY ) ? dict.n : maxY;
                 }
                 dicts.push(dict);
