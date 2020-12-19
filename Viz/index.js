@@ -229,6 +229,12 @@ function processData() {
     prepareHeatmapEvent();
     prepareUnitEvent();
     prepareButtons();
+
+    // Unblur page
+    setTimeout(function () {
+        document.getElementById("loader").style.display = "none";
+        document.getElementById("bodyR").style.filter = "none";
+    }, 100);
 }
 
 /**
@@ -879,7 +885,7 @@ function gen_lines_chart() {
 
     //
 
-    console.time("test");
+    console.time("line-data-gen");
     let valueByMakeYear = d3.rollup(filteredAccidentData, v => {
         let a = unroll(d3.rollup(v, v => v.length, v => v.number_of_casualties), ["casualties"]);
         let b = d3.sum(a, a => a.value);
@@ -899,7 +905,7 @@ function gen_lines_chart() {
 
     default_data[4] = [valueByMakeYear, worst_makes, filteredAccidentData];
 
-    console.timeEnd("test");
+    console.timeEnd("line-data-gen");
 
     // worst_makes = (Array.from(
     //     d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))

@@ -11,28 +11,33 @@
         <link rel="stylesheet" href="base.css">
     </head>
     <body>
-        <div class="topbar">
-            <h1 id="title">UK Accidents</h1>
-            <div id="year_slider"></div>
-            <div class="buttons">
-                <span class="btn" id="reset">Reset</span>
-            </div>
+        <div id="loader" style="display: ;">
+            <div class="lds-hourglass"></div>
         </div>
-        <div class="idioms">
-            <div class="idiom-column">
-                <div class="idiom" id="choropleth_map" style="width: 350px; height: 400px; grid-row: 1; position: relative;"></div>
-                <div class="idiom" id="pyramid_bar_chart" style="width: 350px; height: 400px; grid-row: 2;"></div>
+        <div id="bodyR">
+            <div class="topbar">
+                <h1 id="title">UK Accidents</h1>
+                <div id="year_slider"></div>
+                <div class="buttons">
+                    <span class="btn" id="reset">Reset</span>
+                </div>
             </div>
-            <div class="idiom-column">
-                <div class="idiom" id="alluvial_chart" style="width: 600px; height: 400px;grid-row: 1;"></div>
-                <div class="idiom" id="line_chart" style="width: 600px; height: 400px;grid-row: 2;"></div>
-            </div>
-            <div class="idiom-column">
-                <div class="idiom" id="radial_chart" style="width: 500px; height: 300px; grid-row: 1;"></div>
-                <div class="idiom" id="calendar_heatmap" style="width: 500px; height: 500px; grid-row: 2;"></div>
-            </div>
-            <div class="idiom-column">
-                <div class="idiom" id="unit_chart" style="width: 350px; height: 820px;"></div>
+            <div class="idioms">
+                <div class="idiom-column">
+                    <div class="idiom" id="choropleth_map" style="width: 350px; height: 400px; grid-row: 1; position: relative;"></div>
+                    <div class="idiom" id="pyramid_bar_chart" style="width: 350px; height: 400px; grid-row: 2;"></div>
+                </div>
+                <div class="idiom-column">
+                    <div class="idiom" id="alluvial_chart" style="width: 600px; height: 400px;grid-row: 1;"></div>
+                    <div class="idiom" id="line_chart" style="width: 600px; height: 400px;grid-row: 2;"></div>
+                </div>
+                <div class="idiom-column">
+                    <div class="idiom" id="radial_chart" style="width: 500px; height: 300px; grid-row: 1;"></div>
+                    <div class="idiom" id="calendar_heatmap" style="width: 500px; height: 500px; grid-row: 2;"></div>
+                </div>
+                <div class="idiom-column">
+                    <div class="idiom" id="unit_chart" style="width: 350px; height: 820px;"></div>
+                </div>
             </div>
         </div>
     </body>
