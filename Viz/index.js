@@ -163,7 +163,7 @@ getData();
 
 // Gets data from dataset
 function getData() {
-    d3.dsv(";", "data/dataset_2005-2010_zip.csv", function(d) {
+    d3.dsv(";", "data/dataset_2010s_zip.csv", function(d) {
         return {
             // Accident_Severity: +d.Accident_Severity,
             age: +d.Age_Band_of_Driver,
@@ -1179,7 +1179,7 @@ function gen_radial_chart() {
     let angleSlice = Math.PI / 6;
 
     let g = svg_radar_chart.append('g')
-        .attr('transform', 'translate(' +  (width/2 + padding * 6) + ',' + (height/2) +')');
+        .attr('transform', 'translate(' +  (width/2 + padding * 9) + ',' + (height/2) +')');
 
     let axisGrid = g.append('g')
         .attr('class', 'axisWrapper');
@@ -1202,7 +1202,7 @@ function gen_radial_chart() {
         .attr("x", d => d * radius / def_i6.levels + def_i6.labelFactor)
         .attr("y", 0)
         .attr("dy", "0.4em")
-        .style("font-size", "10px")
+        .style("font-size", "12px")
         .attr("fill", "#737373")
         .text(d =>Format(max * d/def_i6.levels));
 
@@ -1225,7 +1225,8 @@ function gen_radial_chart() {
     //Append the labels at each axis
     axis.append("text")
         .attr("class", "legend")
-        .style("font-size", "11px")
+        .style("font-size", d => !(d%3)?"15px":"11px")
+        .attr("fill", d => (d%3)?"#636363":"black")
         .attr("text-anchor", "middle")
         .attr("dy", "0.35em")
         .attr("x", (d, i) => rScale(max * def_i6.labelFactor) * Math.cos(angleSlice*i - Math.PI/2))
@@ -1283,8 +1284,8 @@ function gen_radial_chart() {
         .attr('x', 6 * padding)
         .attr('y', height - 6.5*padding)
         .style('fill', '#575757')
-        .style("font-size", "16px")
-        .text('AM');
+        .style("font-size", "15px")
+        .text('Day - 7AM to 7PM');
 
     legendG.append('circle')
         .attr('cx', 3 * padding)
@@ -1297,8 +1298,14 @@ function gen_radial_chart() {
         .attr('x', 6 * padding)
         .attr('y', height - 3.5*padding)
         .style('fill', '#575757')
-        .style("font-size", "16px")
-        .text('PM');
+        .style("font-size", "15px")
+        .text('Night - 7PM to 7AM');
+
+    svg_radar_chart.append("text")
+        .style("font-size", "20px")
+        .attr("transform", translation(20,30))
+        .text("Accidents by hour");
+
 }
 
 //Generate calendar heatmap
@@ -1358,17 +1365,17 @@ function gen_calendar_heatmap() {
         .selectAll("text")
         .attr('class', 'clickable')
         .attr("color", "black")
-        .attr("font-size", "12")
+        .style("font-size", "15px")
         .on('mouseover', (e, d) => {
             if(!selected_month_dow.has(d)) {
                 d3.select(e.target)
-                    .style("font-size", "18");
+                    .style("font-size", "18px");
             }
         })
         .on('mouseout', (e, d) => {
             if(!selected_month_dow.has(d)) {
                 d3.select(e.target)
-                    .style("font-size", "12");
+                    .style("font-size", "15px");
             }
         });
 
@@ -1393,7 +1400,7 @@ function gen_calendar_heatmap() {
         .attr("y", d => dayScale(getDay(d[0])))
         .attr("fill", d => colors(d[1]))
         .append("title")
-        .text(d => d);
+        .text(d => d[0] + ', ' + d[1].toFixed(1));
 
     let legend_g = svg_calendar_heatmap
         .append('g')
@@ -1451,6 +1458,20 @@ function gen_calendar_heatmap() {
         .attr("id", "legend-axis-heatmap")
         .attr("transform", translation(width/2 - def_i5.legendWidth/2 + padding, 0))
         .call(legendAxis);
+
+    svg_calendar_heatmap.append("text")
+        .attr("id", "heatmapXLabel")
+        .style("font-size", "15px")
+        .style("text-anchor", "middle")
+        .attr("transform", translation(260,25))
+        .text("Month");
+
+    svg_calendar_heatmap.append("text")
+        .attr("id", "heatmapYLabel")
+        .style("font-size", "15px")
+        .style("text-anchor", "middle")
+        .attr("transform", translation(25,250) + " rotate(-90)")
+        .text("Day of the month");
 }
 
 // Generate unit chart
@@ -2072,7 +2093,7 @@ function prepareHeatmapEvent() {
 
             d3.select(event.target)
                 .style("font-weight", "normal")
-                .style("font-size", "12");
+                .style("font-size", "15px");
         }
         else {
             selected_month_dow.add(x);
@@ -2082,7 +2103,7 @@ function prepareHeatmapEvent() {
 
             d3.select(event.target)
                 .style("font-weight", "bold")
-                .style("font-size", "17");;
+                .style("font-size", "17px");;
         }
 
         setTimeout(function(){ updateIdioms(); }, 0);
@@ -2923,7 +2944,7 @@ function updateIdioms() {
             .data(d3.range(1,(def_i6.levels+1)).reverse())
             .join('text')
             .transition()
-            .delay(300)
+            .delay(1500)
             .duration(1000)
             .attr("x", d => d * radius / def_i6.levels + def_i6.labelFactor)
             .attr("y", 0)
@@ -2945,7 +2966,7 @@ function updateIdioms() {
             .data(dataset)
             .join('path')
             .transition()
-            .delay(300)
+            .delay(1500)
             .duration(1000)
             .attr("d", radarLine)
             .style("stroke-width", 2 + "px")
@@ -2956,7 +2977,7 @@ function updateIdioms() {
             .data(datasetO)
             .join('circle')
             .transition()
-            .delay(300)
+            .delay(1500)
             .duration(1000)
             .attr("r", 3)
             .attr("cx", (d) => rScale(d.value) * Math.cos(angles(+d.time%12) - Math.PI/2))
@@ -3028,7 +3049,9 @@ function updateIdioms() {
             min,
             max,
             valueOf = null,
-            title = null;
+            title = null,
+            xLabel,
+            yLabel;
 
         let years = new Array(0);
 
@@ -3062,7 +3085,10 @@ function updateIdioms() {
             max = d3.max(dataset, d => d.value);
 
             valueOf = d => d.value;
-            title = d => d.date.slice(5) + ', ' + d.value;
+            title = d => d.date.slice(5) + ', ' + d.value.toFixed(1);
+
+            xLabel = "Weekday";
+            yLabel = "Week of the Year"
         }
         else {
             if (!hasReset) {
@@ -3093,7 +3119,10 @@ function updateIdioms() {
             max = d3.max(dataset, d => d[1]);
 
             valueOf = d => d[1];
-            title = d => d;
+            title = d => d[0] + ', ' + d[1].toFixed(1);
+
+            xLabel = "Month";
+            yLabel = "Day of the month"
         }
 
         let colors = d3.scaleLinear()
@@ -3110,6 +3139,10 @@ function updateIdioms() {
             .tickValues(y_domain);
 
         svg_calendar_heatmap.select(".rects")
+            .selectAll("title")
+            .remove();
+
+        svg_calendar_heatmap.select(".rects")
             .selectAll("rect")
             .data(dataset)
             .join("rect")
@@ -3117,7 +3150,7 @@ function updateIdioms() {
             .attr("width", x_scale.bandwidth())
             .attr("height", y_scale.bandwidth())
             .transition()
-            .delay(300)
+            .delay(1500)
             .duration(1000)
             .attr("x", d => x_scale(x_function(d)))
             .attr("y", d => y_scale(y_function(d)))
@@ -3127,33 +3160,40 @@ function updateIdioms() {
                     return '';
                 }
                 return selected_month_dow.has(+x_function(d))?'':'url(#desaturate)'
-            })
-            .select("title")
-            .text(d => title(d));
+            });
+        svg_calendar_heatmap.select(".rects")
+            .selectAll("rect")
+            .data(dataset)
+            .join("rect")
+            .append("title")
+            .text(title);
 
         svg_calendar_heatmap.select("#xAxis")
             .call(xAxis)
             .selectAll("text")
             .attr('class', 'clickable')
             .attr("color", "black")
-            .attr("font-size", "12")
+            .attr("font-size", "15px")
             .on('mouseover', (e, d) => {
                 if(!selected_month_dow.has(d)) {
                     d3.select(e.target)
-                        .style("font-size", "18");
+                        .style("font-size", "18px");
                 }
             })
             .on('mouseout', (e, d) => {
                 if(!selected_month_dow.has(d)) {
                     d3.select(e.target)
-                        .style("font-size", "12");
+                        .style("font-size", "15px");
                 }
             });
 
-        svg_calendar_heatmap.select("#yAxis")
-            .call(yAxis)
-            .attr("color", "black")
-            .attr("font-size", "12");
+        svg_calendar_heatmap.select("#heatmapXLabel")
+            .text(xLabel);
+
+        svg_calendar_heatmap.select("#heatmapYLabel")
+            .text(yLabel);
+
+
 
         updateHeatmapLegend(min, max, colors);
     }
