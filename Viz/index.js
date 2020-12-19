@@ -158,6 +158,7 @@ let def_i7 = {
 let animateCars;
 
 // MAIN
+console.time("load");
 getData();
 
 // Gets data from dataset
@@ -235,6 +236,7 @@ function processData() {
         document.getElementById("loader").style.display = "none";
         document.getElementById("bodyR").style.filter = "none";
     }, 100);
+    console.timeEnd("load");
 }
 
 /**
@@ -319,7 +321,7 @@ function gen_choropleth_map() {
         .attr("id", "county-select")
         .attr("multiple", "multiple")
         .style("left", 20 + "px")
-        .style("top", (def_i1.margin.top*1.05) + "px")
+        .style("top", (def_i1.margin.top*1.55) + "px")
         .style("pointer-events", "none")
         .style("opacity", 0)
         .style("height", "35%")
@@ -331,6 +333,7 @@ function gen_choropleth_map() {
         .append("option")
         .attr("id", function (d) { return "C" + d.id; })
         .attr("value", function (d) { return d.id; })
+        .attr('class', 'clickable')
         .text(function (d) {
             return d.name; // capitalize 1st letter
         })
@@ -465,13 +468,11 @@ function gen_choropleth_map() {
         });
 
     // Add button for showing/hiding dropdown
-    g.append("rect")
-        .attr("width", 15)
-        .attr("height", 15)
-        .attr("fill", "gray")
+    g.append("svg:image")
+        .attr("width", 30)
+        .attr("height", 30)
         .attr('class', 'clickable')
-        .style("stroke", "black")
-        .attr("rx", 2)
+        .attr("xlink:href", "data/img/dropdown.png")
         .attr("transform", translation(20, def_i1.margin.top*0.2))
         .on("click", () => {
             let hidden = d3.select("#county-select").attr("is-hidden");
@@ -673,6 +674,7 @@ function gen_pyramid_bar_chart() {
         .data(groupedByAgeGender)
         .join('rect')
         .attr("class", ".bar.left clickable")
+        .attr("gender", "male")
         .attr('x', 0)
         .attr('y', function(d) { return yScale(d[0]); })
         .attr('width', function(d) { return xScale(d[1].get(1)); })
@@ -704,6 +706,7 @@ function gen_pyramid_bar_chart() {
         .data(groupedByAgeGender)
         .join('rect')
         .attr("class", ".bar.right clickable")
+        .attr("gender", "female")
         .attr('x', 0)
         .attr('y', function(d) { return yScale(d[0]); })
         .attr('width', function(d) { return xScale(d[1].get(2)); })
@@ -1883,18 +1886,10 @@ function preparePyramidEvent() {
         let datum = args.datum;
 
         let age_band = datum[0];
-        let sex;
-        if (event.target.className["baseVal"] == ".bar.left"){
-            sex = "1";
-        }
-        else if(event.target.className["baseVal"] == ".bar.right"){
-            sex = "2";
-        }
-        else{
-            return;
-        }
+        if (event.target === null) return;
+        let sex = (event.target.getAttribute("gender") === "male" ? "1" : "2");
 
-        selectedBar = age_band + "|" + sex;
+        let selectedBar = age_band + "|" + sex;
 
         // Check if already selected
         if (selectedPyramidBars.has(selectedBar)) {
@@ -2445,7 +2440,7 @@ function updateIdioms() {
             .selectAll('rect')
             .data(groupedByAgeGender)
             .join('rect')
-            .attr("class", ".bar.left")
+            .attr("class", ".bar.left clickable")
             .attr('x', 0)
             .attr('y', function(d) { return yScale(d[0]); })
             .attr('height', yScale.bandwidth())
@@ -2480,7 +2475,7 @@ function updateIdioms() {
             .selectAll('rect')
             .data(groupedByAgeGender)
             .join('rect')
-            .attr("class", ".bar.right")
+            .attr("class", ".bar.right clickable")
             .attr('x', 0)
             .attr('y', function(d) { return yScale(d[0]); })
             .attr('height', yScale.bandwidth())
@@ -2620,6 +2615,7 @@ function updateIdioms() {
             .selectAll("text")
             .data(nodes)
             .join("text")
+            .attr('class', 'clickable')
             .on("mouseover", function(event,d) {
                 // Check if not selected
                 if (!selectedAlluvialLabels.has(d.name)) {
@@ -3564,16 +3560,8 @@ function sleep(ms) {
 
 function barToString(event,datum){
     let age_band = datum[0];
-    let sex;
-    if (event.target.className["baseVal"] == ".bar.left"){
-        sex = "1";
-    }
-    else if(event.target.className["baseVal"] == ".bar.right"){
-        sex = "2";
-    }
-    else{
-        return;
-    }
+    if (event.target === null) return;
+    let sex = (event.target.getAttribute("gender") === "male" ? "1" : "2");
 
     return age_band + "|" + sex;
 }
