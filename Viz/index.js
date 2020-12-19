@@ -162,7 +162,7 @@ getData();
 
 // Gets data from dataset
 function getData() {
-    d3.dsv(";", "data/dataset_2010s_zip.csv", function(d) {
+    d3.dsv(";", "data/dataset_2005-2010_zip.csv", function(d) {
         return {
             // Accident_Severity: +d.Accident_Severity,
             age: +d.Age_Band_of_Driver,
@@ -425,6 +425,7 @@ function gen_choropleth_map() {
     g.selectAll("path")
         .data(uk_data)
         .enter().append("path")
+        .attr('class', 'clickable')
         .attr("d", path)
         .attr("id", d => "C" + getCountyId(d))
         .attr("fill", function (d) {
@@ -468,6 +469,7 @@ function gen_choropleth_map() {
         .attr("width", 15)
         .attr("height", 15)
         .attr("fill", "gray")
+        .attr('class', 'clickable')
         .style("stroke", "black")
         .attr("rx", 2)
         .attr("transform", translation(20, def_i1.margin.top*0.2))
@@ -597,6 +599,7 @@ function gen_pyramid_bar_chart() {
 
     leftBarGroup.append( 'text' )
         .attr('id','maleLabel')
+        .attr('class', 'clickable')
         .attr( 'transform', translation(regionWidth - margin.left,3) + ', scale(-1,1)')
         .style( 'font', '15px sans-serif' )
         .attr( 'text-anchor', 'start' )
@@ -621,6 +624,7 @@ function gen_pyramid_bar_chart() {
         .attr('class', 'right-bar');
 
     rightBarGroup.append( 'text' )
+        .attr('class', 'clickable')
         .attr('id','femaleLabel')
         .attr( 'transform', translation(regionWidth - 3*margin.right,3))
         .style( 'font', '15px sans-serif' )
@@ -668,7 +672,7 @@ function gen_pyramid_bar_chart() {
     leftBarGroup.selectAll('rect')
         .data(groupedByAgeGender)
         .join('rect')
-        .attr("class", ".bar.left")
+        .attr("class", ".bar.left clickable")
         .attr('x', 0)
         .attr('y', function(d) { return yScale(d[0]); })
         .attr('width', function(d) { return xScale(d[1].get(1)); })
@@ -699,7 +703,7 @@ function gen_pyramid_bar_chart() {
     rightBarGroup.selectAll('rect')
         .data(groupedByAgeGender)
         .join('rect')
-        .attr("class", ".bar.right")
+        .attr("class", ".bar.right clickable")
         .attr('x', 0)
         .attr('y', function(d) { return yScale(d[0]); })
         .attr('width', function(d) { return xScale(d[1].get(2)); })
@@ -778,58 +782,59 @@ function gen_alluvial_chart() {
         links: graph.links.map(d => Object.assign({}, d))});
 
     g.append("g")
-    .attr('id', 'nodes_rect')
-    .selectAll("rect")
-    .data(nodes)
-    .join("rect")
-    .attr("x", d => d.x0)
-    .attr("y", d => d.y0)
-    .attr("height", d => d.y1 - d.y0)
-    .attr("width", d => d.x1 - d.x0)
-    .append("title")
-    .text(d => `${d.name}\n${d.value.toLocaleString()}`);
+        .attr('id', 'nodes_rect')
+        .selectAll("rect")
+        .data(nodes)
+        .join("rect")
+        .attr("x", d => d.x0)
+        .attr("y", d => d.y0)
+        .attr("height", d => d.y1 - d.y0)
+        .attr("width", d => d.x1 - d.x0)
+        .append("title")
+        .text(d => `${d.name}\n${d.value.toLocaleString()}`);
 
     g.append("g")
-    .attr('id', 'links_path')
-    .attr("fill", "none")
-    .selectAll("g")
-    .data(links)
-    .join("path")
-    .attr("d", d3.sankeyLinkHorizontal())
-    .attr("stroke", function(d){
-        return color(d.names[0])
-    })
-    .attr("stroke-width", d => d.width)
-    .style("mix-blend-mode", "multiply")
-    .append("title")
-    .text(d => `${d.names.join(" → ")}\n${d.value.toLocaleString()}`);
+        .attr('id', 'links_path')
+        .attr("fill", "none")
+        .selectAll("g")
+        .data(links)
+        .join("path")
+        .attr("d", d3.sankeyLinkHorizontal())
+        .attr("stroke", function(d){
+            return color(d.names[0])
+        })
+        .attr("stroke-width", d => d.width)
+        .style("mix-blend-mode", "multiply")
+        .append("title")
+        .text(d => `${d.names.join(" → ")}\n${d.value.toLocaleString()}`);
 
     g.append("g")
-    .attr('id', 'nodes_label')
-    .style("font", "15px sans-serif")
-    .selectAll("text")
-    .data(nodes)
-    .join("text")
-    .attr("x", d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
-    .attr("y", d => (d.y1 + d.y0) / 2)
-    .attr("dy", "0.35em")
-    .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
-    .text(function(d){
-        return d.name})
-    .on("mouseover", function(event,d) {
-        // Check if not selected
-        if (!selectedAlluvialLabels.has(d.name)) {
-            d3.select(event.target)
-                .style("font-weight", "bold")
-        }
-    })
-    .on("mouseout", function(event, d) {
-        // Check if not selected
-        if (!selectedAlluvialLabels.has(d.name)) {
-            d3.select(event.target)
-                .style("font-weight", "normal");
-        }
-    })
+        .attr('id', 'nodes_label')
+        .style("font", "15px sans-serif")
+        .selectAll("text")
+        .data(nodes)
+        .join("text")
+        .attr('class', 'clickable')
+        .attr("x", d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
+        .attr("y", d => (d.y1 + d.y0) / 2)
+        .attr("dy", "0.35em")
+        .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
+        .text(function(d){
+            return d.name})
+        .on("mouseover", function(event,d) {
+            // Check if not selected
+            if (!selectedAlluvialLabels.has(d.name)) {
+                d3.select(event.target)
+                    .style("font-weight", "bold")
+            }
+        })
+        .on("mouseout", function(event, d) {
+            // Check if not selected
+            if (!selectedAlluvialLabels.has(d.name)) {
+                d3.select(event.target)
+                    .style("font-weight", "normal");
+            }
+        })
     // .append("tspan")
     // .attr("fill-opacity", 0.7)
     // .text(d => ` ${d.value.toLocaleString()}`);
@@ -841,28 +846,28 @@ function gen_alluvial_chart() {
                     }
 
     svg_alluvial_chart.append("text")
-    .attr("text-anchor", "begin")
-    .attr("x", margin.left)
-    .attr("y", height - 20)
-    .text(names_in_viz[keys[0]]);
+        .attr("text-anchor", "begin")
+        .attr("x", margin.left)
+        .attr("y", height - 20)
+        .text(names_in_viz[keys[0]]);
 
     svg_alluvial_chart.append("text")
-    .attr("text-anchor", "middle")
-    .attr("x", margin.left + effectiveWidth/3)
-    .attr("y", height - 20)
-    .text(names_in_viz[keys[1]]);
+        .attr("text-anchor", "middle")
+        .attr("x", margin.left + effectiveWidth/3)
+        .attr("y", height - 20)
+        .text(names_in_viz[keys[1]]);
 
     svg_alluvial_chart.append("text")
-    .attr("text-anchor", "middle")
-    .attr("x", margin.left + (effectiveWidth/3)*2)
-    .attr("y", height - 20)
-    .text(names_in_viz[keys[2]]);
+        .attr("text-anchor", "middle")
+        .attr("x", margin.left + (effectiveWidth/3)*2)
+        .attr("y", height - 20)
+        .text(names_in_viz[keys[2]]);
 
     svg_alluvial_chart.append("text")
-    .attr("text-anchor", "end")
-    .attr("x", margin.left + (effectiveWidth/3)*3)
-    .attr("y", height - 20)
-    .text(names_in_viz[keys[3]]);
+        .attr("text-anchor", "end")
+        .attr("x", margin.left + (effectiveWidth/3)*3)
+        .attr("y", height - 20)
+        .text(names_in_viz[keys[3]]);
 
 }
 
@@ -903,8 +908,6 @@ function gen_lines_chart() {
         .slice(0,5)
         .map(d => d[0]);
 
-    default_data[4] = [valueByMakeYear, worst_makes, filteredAccidentData];
-
     console.timeEnd("line-data-gen");
 
     // worst_makes = (Array.from(
@@ -918,6 +921,7 @@ function gen_lines_chart() {
     let min_Vehicle_Year = d3.min(filteredAccidentData, d => d.vehicle_year);
     let max_Vehicle_Year = d3.max(filteredAccidentData, d => d.vehicle_year);
 
+    default_data[4] = [valueByMakeYear, worst_makes, filteredAccidentData, min_Vehicle_Year, max_Vehicle_Year];
     // let numberOfAccidentsPerYear = d3.rollup(filteredAccidentData, v=> v.length, d=>d.vehicle_year, d=>d.make);
 
     //
@@ -1127,41 +1131,35 @@ function gen_radial_chart() {
         height = def_i6.height,
         padding = def_i6.padding;
 
-    let dataset = d3.group(currentAccidentData, d => d.time.slice(0, 2));
-    dataset = new Map([...dataset.entries()].sort());
-    default_data[5] = dataset;
-    let keys = Array.from(dataset.keys());
+    let dataset = d3.rollup(other_data, v => v.length, d => d.time.slice(0, 2));
+    dataset = unroll(dataset, ['time', 'value']);
 
-    let max = d3.max(keys, d => dataset.get(d).length);
-
-    let datasetO = new Map(dataset);
-    let datasetAM = new Map(dataset);
-    let datasetPM = new Map(dataset);
-
-    for (let k of datasetAM.keys()) {
-        if (!(k >= 6 && k <= 20))
-            datasetAM.delete(k);
-    }
-    for (let k of datasetPM.keys()) {
-        if (!(k > 17 || k < 9))
-            datasetPM.delete(k);
+    for(let i = 0; i<24; i++) {
+        let formattedNumber = ('0' + i).slice(-2);
+        if(!dataset.some(d => d.time === formattedNumber)) {
+            dataset.push({time: formattedNumber, value: 0});
+        }
     }
 
-    let datasetPM1st = new Map(datasetPM);
-    let datasetPM2nd = new Map(datasetPM);
+    let max = d3.max(dataset, d => d.value);
 
-    for (let k of datasetPM1st.keys()) {
-        if (k < 18)
-            datasetPM1st.delete(k);
-    }
-    for (let k of datasetPM2nd.keys()) {
-        if (k > 8)
-            datasetPM2nd.delete(k);
-    }
+    let datasetO = [...dataset];
 
-    datasetPM = new Map([...datasetPM1st].concat([...datasetPM2nd]));
+    let datasetAM = dataset.filter(d => (+d.time >= 6 && +d.time <= 20));
+    let datasetPM = dataset.filter(d => (+d.time > 17 || +d.time < 9));
+
+    let datasetPM1st = datasetPM.filter(d => (+d.time >= 18));
+    let datasetPM2nd = datasetPM.filter(d => (+d.time <= 8));
+
+    datasetAM.sort((a,b) => a.time > b.time? 1:-1)
+    datasetPM1st.sort((a,b) => a.time > b.time? 1:-1)
+    datasetPM2nd.sort((a,b) => a.time > b.time? 1:-1)
+
+    datasetPM = [...datasetPM1st].concat([...datasetPM2nd]);
 
     dataset = [datasetAM, datasetPM];
+
+    default_data[5] = dataset;
 
     let radius = (height / 2 - padding * 4);
 
@@ -1232,13 +1230,14 @@ function gen_radial_chart() {
         .attr("y", (d, i) => rScale(max * def_i6.labelFactor) * Math.sin(angleSlice*i - Math.PI/2))
         .text(d => (d === 0 || d === 3)?'':d);
 
+    //Draw Lines and Points
     let angles = d3.scaleLinear()
         .domain([0, 12])
         .range([0, 2 * Math.PI]);
 
     let radarLine = d3.lineRadial()
-        .angle((d) => angles(+d[0]))
-        .radius(d => rScale(d[1].length))
+        .angle((d) => angles(+d.time))
+        .radius(d => rScale(d.value))
         .curve(d3.curveCardinalOpen);
 
     let blobWrapper = g.selectAll(".radarWrapper")
@@ -1260,13 +1259,14 @@ function gen_radial_chart() {
         .append("circle")
         .attr("id", "radarCircle")
         .attr("r", 3)
-        .attr("cx", (d) => rScale(d[1].length) * Math.cos(angles(+d[0]%12) - Math.PI/2))
-        .attr("cy", (d) => rScale(d[1].length) * Math.sin(angles(+d[0]%12) - Math.PI/2))
-        .style("fill", (d) => (+d[0] >= 7 && +d[0] <= 19)? "#ac5454" : "#2e657d")
+        .attr("cx", (d) => rScale(d.value) * Math.cos(angles(+d.time%12) - Math.PI/2))
+        .attr("cy", (d) => rScale(d.value) * Math.sin(angles(+d.time%12) - Math.PI/2))
+        .style("fill", (d) => (+d.time >= 7 && +d.time <= 19)? "#ac5454" : "#2e657d")
         .style("fill-opacity", 0.8)
         .append('title')
-        .text(d => d[1].length);
+        .text(d => d.value);
 
+    //Legend
     let legendG = svg_radar_chart.append('g')
         .attr('class', 'legend');
 
@@ -1319,7 +1319,7 @@ function gen_calendar_heatmap() {
 
     let monthScale = d3.scaleBand()
         .domain(ticksMonth)
-        .range([padding, width - padding])
+        .range([2 * padding, width - padding])
 
     let xAxis = d3.axisTop()
         .scale(monthScale)
@@ -1328,10 +1328,11 @@ function gen_calendar_heatmap() {
 
     let dayScale = d3.scaleBand()
         .domain(ticksDays)
-        .range([padding, height - padding * 2]);
+        .range([2 * padding, height - padding * 2]);
 
     let yAxis = d3.axisLeft()
-        .scale(dayScale);
+        .scale(dayScale)
+        .tickValues(dayScale.domain().filter((d,i) => !(i%3)));
 
     svg_calendar_heatmap = d3.select("#calendar_heatmap")
         .append("svg")
@@ -1351,8 +1352,9 @@ function gen_calendar_heatmap() {
     g.append("g")
         .attr("id", "xAxis")
         .call(xAxis)
-        .attr("transform", translation(0,padding))
+        .attr("transform", translation(0, 2 * padding))
         .selectAll("text")
+        .attr('class', 'clickable')
         .attr("color", "black")
         .attr("font-size", "12")
         .on('mouseover', (e, d) => {
@@ -1371,7 +1373,7 @@ function gen_calendar_heatmap() {
     g.append("g")
         .attr("id", "yAxis")
         .call(yAxis)
-        .attr("transform", translation(padding,0))
+        .attr("transform", translation(2 * padding,0))
         .selectAll("text")
         .attr("color", "black")
         .attr("font-size", "11");
@@ -2659,6 +2661,7 @@ function updateIdioms() {
         // Get custom dataset
         let filteredAccidentData;
         let worst_makes, valueByMakeYear;
+        let min_Vehicle_Year, max_Vehicle_Year;
 
         console.time("line-data")
         if (!hasReset) {
@@ -2688,14 +2691,19 @@ function updateIdioms() {
                 .slice(0,5)
                 .map(d => d[0]);
 
+            min_Vehicle_Year = d3.min(filteredAccidentData, d => d.vehicle_year);
+            max_Vehicle_Year = d3.max(filteredAccidentData, d => d.vehicle_year);
+
+
         } else {
             valueByMakeYear = default_data[4][0];
             worst_makes = default_data[4][1];
             filteredAccidentData = default_data[4][2];
+            min_Vehicle_Year = default_data[4][3];
+            max_Vehicle_Year = default_data[4][4];
         }
 
-        let min_Vehicle_Year = d3.min(filteredAccidentData, d => d.vehicle_year);
-        let max_Vehicle_Year = d3.max(filteredAccidentData, d => d.vehicle_year);
+
 
         console.timeEnd("line-data")
 
@@ -2866,57 +2874,44 @@ function updateIdioms() {
     }
 
     function update_radar_chart() {
-        let width = def_i6.width,
-            height = def_i6.height,
+        let height = def_i6.height,
             padding = def_i6.padding;
 
-        let dataset;
+        let dataset, datasetO, max;
         if (!hasReset) {
-            dataset = d3.group(other_data, d => d.time.slice(0, 2));
-            dataset = new Map([...dataset.entries()].sort());
+            dataset = d3.rollup(other_data, v => v.length, d => d.time.slice(0, 2));
+            dataset = unroll(dataset, ['time', 'value']);
+
+            for(let i = 0; i<24; i++) {
+                let formattedNumber = ('0' + i).slice(-2);
+                if(!dataset.some(d => d.time === formattedNumber)) {
+                    dataset.push({time: formattedNumber, value: 0});
+                }
+            }
+
+            max = d3.max(dataset, d => d.value);
+
+            datasetO = [...dataset];
+
+            let datasetAM = dataset.filter(d => (+d.time >= 6 && +d.time <= 20));
+            let datasetPM = dataset.filter(d => (+d.time > 17 || +d.time < 9));
+
+            let datasetPM1st = datasetPM.filter(d => (+d.time >= 18));
+            let datasetPM2nd = datasetPM.filter(d => (+d.time <= 8));
+
+            datasetAM.sort((a,b) => a.time > b.time? 1:-1)
+            datasetPM1st.sort((a,b) => a.time > b.time? 1:-1)
+            datasetPM2nd.sort((a,b) => a.time > b.time? 1:-1)
+
+            datasetPM = [...datasetPM1st].concat([...datasetPM2nd]);
+
+            dataset = [datasetAM, datasetPM];
         } else {
             dataset = default_data[5];
+            datasetO = [...dataset[1]];
+            dataset[0].forEach(d => datasetO.some(v => +v.time === +d.time ? true:false)?()=>{}:datasetO.unshift(d));
+            max = d3.max(datasetO, d => d.value);
         }
-
-        for(let i = 0; i<24; i++) {
-            let formattedNumber = ('0' + i).slice(-2);
-            if(!dataset.has(formattedNumber)) {
-                dataset.set(formattedNumber, new Array(0));
-            }
-        }
-
-        let keys = Array.from(dataset.keys());
-
-        let max = d3.max(keys, d => dataset.get(d).length);
-
-        let datasetO = new Map(dataset);
-        let datasetAM = new Map(dataset);
-        let datasetPM = new Map(dataset);
-
-        for (let k of datasetAM.keys()) {
-            if (!(k >= 6 && k <= 20))
-                datasetAM.delete(k);
-        }
-        for (let k of datasetPM.keys()) {
-            if (!(k > 17 || k < 9))
-                datasetPM.delete(k);
-        }
-
-        let datasetPM1st = new Map(datasetPM);
-        let datasetPM2nd = new Map(datasetPM);
-
-        for (let k of datasetPM1st.keys()) {
-            if (k < 18)
-                datasetPM1st.delete(k);
-        }
-        for (let k of datasetPM2nd.keys()) {
-            if (k > 8)
-                datasetPM2nd.delete(k);
-        }
-
-        datasetPM = new Map([...datasetPM1st].concat([...datasetPM2nd]));
-
-        dataset = [datasetAM, datasetPM];
 
         let radius = (height / 2 - padding * 4);
 
@@ -2925,7 +2920,6 @@ function updateIdioms() {
             .domain([0, max]);
 
         let Format = d3.format('.3s');
-        let angleSlice = Math.PI / 6;
 
         d3.selectAll("#axisLabel")
             .data(d3.range(1,(def_i6.levels+1)).reverse())
@@ -2945,13 +2939,16 @@ function updateIdioms() {
             .range([0, 2 * Math.PI]);
 
         let radarLine = d3.lineRadial()
-            .angle((d) => angles(+d[0]))
-            .radius(d => rScale(d[1].length))
+            .angle((d) => angles(+d.time))
+            .radius(d => rScale(d.value))
             .curve(d3.curveCardinalOpen);
 
         d3.selectAll("#radarStroke")
             .data(dataset)
             .join('path')
+            .transition()
+            .delay(300)
+            .duration(1000)
             .attr("d", radarLine)
             .style("stroke-width", 2 + "px")
             .style("stroke", (d, i) => (i===0)? "#af7070" : "#44849a")
@@ -2960,13 +2957,15 @@ function updateIdioms() {
         d3.selectAll("#radarCircle")
             .data(datasetO)
             .join('circle')
+            .transition()
+            .delay(300)
+            .duration(1000)
             .attr("r", 3)
-            .attr("cx", (d) => rScale(d[1].length) * Math.cos(angles(+d[0]%12) - Math.PI/2))
-            .attr("cy", (d) => rScale(d[1].length) * Math.sin(angles(+d[0]%12) - Math.PI/2))
-            .style("fill", (d) => (+d[0] >= 7 && +d[0] <= 19)? "#ac5454" : "#2e657d")
-            .style("fill-opacity", 0.8)
+            .attr("cx", (d) => rScale(d.value) * Math.cos(angles(+d.time%12) - Math.PI/2))
+            .attr("cy", (d) => rScale(d.value) * Math.sin(angles(+d.time%12) - Math.PI/2))
+            .style("fill", (d) => (+d.time >= 7 && +d.time <= 19)? "#ac5454" : "#2e657d")
             .select('title')
-            .text(d => d[1].length);
+            .text(d => d.value);
     }
 
     function update_calendar_heatmap() {
@@ -3047,11 +3046,11 @@ function updateIdioms() {
             global = dataset;
             x_scale = d3.scaleBand()
                 .domain(ticksDoW)
-                .range([padding, width - padding]);
+                .range([2 * padding, width - padding]);
 
             y_scale = d3.scaleBand()
                 .domain(ticksWeekN)
-                .range([padding, height - padding * 2]);
+                .range([2 * padding, height - padding * 2]);
 
             y_domain = y_scale.domain().filter((d,i) => !(i%5));
 
@@ -3078,13 +3077,13 @@ function updateIdioms() {
 
             x_scale = d3.scaleBand()
                 .domain(ticksMonth)
-                .range([padding, width - padding])
+                .range([2 * padding, width - padding])
 
             y_scale = d3.scaleBand()
                 .domain(ticksDays)
-                .range([padding, height - padding * 2]);
+                .range([2 * padding, height - padding * 2]);
 
-            y_domain = y_scale.domain();
+            y_domain = y_scale.domain().filter((d,i) => !(i%3));
 
             x_function = d => getMonth(d[0]);
             y_function = d => getDay(d[0]);
@@ -3135,12 +3134,9 @@ function updateIdioms() {
             .text(d => title(d));
 
         svg_calendar_heatmap.select("#xAxis")
-            .call(xAxis);
-
-        svg_calendar_heatmap.select("#yAxis")
-            .call(yAxis);
-
-        svg_calendar_heatmap.selectAll("text")
+            .call(xAxis)
+            .selectAll("text")
+            .attr('class', 'clickable')
             .attr("color", "black")
             .attr("font-size", "12")
             .on('mouseover', (e, d) => {
@@ -3155,6 +3151,11 @@ function updateIdioms() {
                         .style("font-size", "12");
                 }
             });
+
+        svg_calendar_heatmap.select("#yAxis")
+            .call(yAxis)
+            .attr("color", "black")
+            .attr("font-size", "12");
 
         updateHeatmapLegend(min, max, colors);
     }
