@@ -777,10 +777,10 @@ function gen_alluvial_chart() {
     let sankey = d3.sankey()
                .nodeSort(function(a, b){return a.name.localeCompare(b.name);})
                .linkSort(null)
-               .nodeWidth(15)
+               .nodeWidth(10)
                .nodePadding(2)
                .extent([[0, 5], [effectiveWidth, effectiveHeight]])
-    let color = d3.scaleOrdinal(["#98b0c2", "#b6abd6","#d6abb3", "#d6abd3"]).domain(["Dry","Snow","Wet or damp","Other"])
+    let color = d3.scaleOrdinal(["#abc4d6", "#b6abd6","#d6abb3", "#d6abd3"]).domain(["Dry","Snow","Wet or damp","Other"])
 
     const {nodes, links} = sankey({
         nodes: graph.nodes.map(d => Object.assign({}, d)),
@@ -791,7 +791,6 @@ function gen_alluvial_chart() {
         .selectAll("rect")
         .data(nodes)
         .join("rect")
-        .attr("fill", "#252424")
         .attr("x", d => d.x0)
         .attr("y", d => d.y0)
         .attr("height", d => d.y1 - d.y0)
@@ -1021,7 +1020,7 @@ function gen_lines_chart() {
     .attr("font-size",20)
     .attr("y", -13)
     .attr("x", effectiveWidth/2)
-    .text("Makes with more casualties");
+    .text("Most unsafe makes");
 
     svg.append("text")
     .attr("text-anchor", "middle")
