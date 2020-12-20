@@ -1464,6 +1464,10 @@ function gen_calendar_heatmap() {
         .attr("transform", translation(width/2 - def_i5.legendWidth/2 + padding, 0))
         .call(legendAxis);
 
+    svg_calendar_heatmap.select('#legend-axis-heatmap')
+        .selectAll('path')
+        .attr('class','unchangeable');
+
     svg_calendar_heatmap.append("text")
         .attr("id", "heatmapXLabel")
         .style("font-size", "15px")
