@@ -474,7 +474,7 @@ function gen_choropleth_map() {
         .attr("width", 30)
         .attr("height", 30)
         .attr('class', 'clickable')
-        .attr("xlink:href", "data/img/dropdown.png")
+        .attr("xlink:href", "img/dropdown.png")
         .attr("transform", translation(20, def_i1.margin.top*0.2))
         .on("click", () => {
             let hidden = d3.select("#county-select").attr("is-hidden");
@@ -1540,7 +1540,7 @@ function gen_unit_chart() {
         .attr('height', effectiveHeight)
         .append("svg:image")
         .attr("class", "lane-image")
-        .attr("xlink:href", "data/road-urban.svg")
+        .attr("xlink:href", "img/road-urban.svg")
         .attr('width', xScale.bandwidth())
         .attr('height', effectiveHeight)
         .attr('transform', translation(-xScale.bandwidth(), 0) + ", scale(3,1)")
@@ -1588,7 +1588,7 @@ function gen_unit_chart() {
                 .append("svg:image")
                 .data([[i, 1, speedIndex]])
                 .attr('class', 'car')
-                .attr("xlink:href", "data/car_2.png")
+                .attr("xlink:href", "img/car.png")
                 .attr('width', def_i7.carSize)
                 .attr('height', def_i7.carSize)
                 .attr('transform', d => getTranslateCar(d, ""))
@@ -1605,7 +1605,7 @@ function gen_unit_chart() {
             .append("svg:image")
             .data([[i, partialNumber, speedIndex]])
             .attr('class', 'car')
-            .attr("xlink:href", "data/car_2.png")
+            .attr("xlink:href", "img/car.png")
             .attr('width', def_i7.carSize)
             .attr('height', def_i7.carSize)
             .attr('transform', d => getTranslateCar(d, ""))
@@ -1644,7 +1644,7 @@ function gen_unit_chart() {
             .attr("transform", d => translation(xScale(d) + signMargin, margin.top - def_i7.speedSignSize - def_i7.speedSignMargin))
             .attr('width', def_i7.speedSignSize)
             .attr('height', def_i7.speedSignSize)
-            .attr("xlink:href", d => "data/speed-signs/" + d + ".svg")
+            .attr("xlink:href", d => "img/speed-signs/" + d + ".svg")
             .attr("preserveAspectRatio", "none")
 
         svg_unit_chart.selectAll('.speed_signs')
@@ -1671,7 +1671,7 @@ function gen_unit_chart() {
             .attr('width', def_i7.roadOptionSize)
             .attr('height', def_i7.roadOptionSize)
             .attr("transform", translation(optionMargin, 0))
-            .attr("xlink:href", "data/road-option/urban.png")
+            .attr("xlink:href", "img/road-option/urban.png")
             .attr("preserveAspectRatio", "none")
             .style("outline", "2px solid black")
             .on('click', (event, d) => {
@@ -1687,7 +1687,7 @@ function gen_unit_chart() {
             .attr('width', def_i7.roadOptionSize)
             .attr('height', def_i7.roadOptionSize)
             .attr("transform", translation(optionMargin, def_i7.roadOptionSize + def_i7.roadOptionPadding))
-            .attr("xlink:href", "data/road-option/rural.png")
+            .attr("xlink:href", "img/road-option/rural.png")
             .attr("preserveAspectRatio", "none")
             .style("outline", "1px solid black")
             .on('click', (event, d) => {
@@ -1752,7 +1752,7 @@ function gen_unit_chart() {
                 .attr("transform", translation(leftMarginSign, margin.bottom / 2 - def_i7.carScaleSize * 0.7))
                 .attr('width', def_i7.carScaleSize)
                 // .attr('height', def_i7.carScaleSize)
-                .attr("xlink:href", "data/speed-signs/20.svg")
+                .attr("xlink:href", "img/speed-signs/20.svg")
 
             g_legend.append('text')
                 .attr("transform", translation(leftMarginSign + def_i7.carScaleSize + 2,
@@ -1768,7 +1768,7 @@ function gen_unit_chart() {
                 .attr("transform", translation(leftMarginCar, margin.bottom / 2 - def_i7.carScaleSize / 2))
                 .attr('width', def_i7.carScaleSize)
                 .attr('height', def_i7.carScaleSize)
-                .attr("xlink:href", "data/car_2.png")
+                .attr("xlink:href", "img/car.png")
 
             g_legend.append('text')
                 .attr("class", "legend_car_value")
@@ -1785,7 +1785,7 @@ function gen_unit_chart() {
                 .attr("transform", translation(leftMarginUrban, margin.bottom / 2 - def_i7.carScaleSize * 0.6))
                 .attr('width', def_i7.carScaleSize)
                 .attr('height', def_i7.carScaleSize)
-                .attr("xlink:href", "data/road-option/urban.png")
+                .attr("xlink:href", "img/road-option/urban.png")
 
             g_legend.append('text')
                 .attr("class", "legend_car_value")
@@ -1802,7 +1802,7 @@ function gen_unit_chart() {
                 .attr("transform", translation(leftMarginRural, margin.bottom / 2 - def_i7.carScaleSize * 0.6))
                 .attr('width', def_i7.carScaleSize)
                 .attr('height', def_i7.carScaleSize)
-                .attr("xlink:href", "data/road-option/rural.png")
+                .attr("xlink:href", "img/road-option/rural.png")
 
             g_legend.append('text')
                 .attr("class", "legend_car_value")
@@ -3275,7 +3275,7 @@ function updateIdioms() {
         g.selectAll('.lane-image')
             .data(speedLimits)
             .join('.lane-image')
-            .attr("xlink:href", d => "data/road-" + selectedRoadOptions[d] + ".svg")
+            .attr("xlink:href", d => "img/road-" + selectedRoadOptions[d] + ".svg")
 
         // Get car values
         let nCars = def_i7.carNumber;
@@ -3322,7 +3322,7 @@ function updateIdioms() {
                     .append("svg:image")
                     .data([[i, 1, speedIndex]])
                     .attr('class', 'car')
-                    .attr("xlink:href", "data/car_2.png")
+                    .attr("xlink:href", "img/car.png")
                     .attr('width', def_i7.carSize)
                     .attr('height', def_i7.carSize)
                     .attr('transform', d => getTranslateCar(d, "bottom"))
@@ -3342,7 +3342,7 @@ function updateIdioms() {
                 .append("svg:image")
                 .data([[i, partialNumber, speedIndex]])
                 .attr('class', 'car')
-                .attr("xlink:href", "data/car_2.png")
+                .attr("xlink:href", "img/car.png")
                 .attr('width', def_i7.carSize)
                 .attr('height', def_i7.carSize)
                 .style('clip-path', "inset(0 0 " + ((1-partialNumber)*100).toString() + "% 0)")
