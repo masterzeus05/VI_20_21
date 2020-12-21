@@ -3200,7 +3200,6 @@ function updateIdioms() {
             .selectAll("text")
             .attr('class', 'clickable')
             .style("font-size", d => {
-                console.log(d);
                 return (!selected_month_dow.has(d))? "15px" : "17px"
             })
             .style("font-weight", d => !selected_month_dow.has(d)?"normal":"bold")
