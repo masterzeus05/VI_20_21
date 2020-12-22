@@ -160,7 +160,6 @@ let def_i7 = {
 let animateCars;
 
 // MAIN
-console.time("load");
 getData();
 
 // Gets data from dataset
@@ -238,7 +237,6 @@ function processData() {
         document.getElementById("loader").style.display = "none";
         document.getElementById("bodyR").style.filter = "none";
     }, 100);
-    console.timeEnd("load");
 }
 
 /**
@@ -894,15 +892,12 @@ function gen_lines_chart() {
     })
 
     //
-
-    console.time("line-data-gen");
     let valueByMakeYear = d3.rollup(filteredAccidentData, v => {
         let a = unroll(d3.rollup(v, v => v.length, v => v.number_of_casualties), ["casualties"]);
         let b = d3.sum(a, a => a.value);
         return [d3.mean(a, a => a.casualties/a.value), b];
     }, d => d.make, d => d.vehicle_year);
     test = valueByMakeYear
-    // console.log(valueByMakeYear);
 
     let helper = unroll(valueByMakeYear, ["make", "vehicle_year"])
     let worst_makes = Array.from(d3.rollup(helper,
@@ -913,23 +908,10 @@ function gen_lines_chart() {
         .slice(0,5)
         .map(d => d[0]);
 
-    console.timeEnd("line-data-gen");
-
-    // worst_makes = (Array.from(
-    //     d3.rollup(filteredAccidentData, v=> d3.sum(v, d=> d.number_of_casualties), d=>d.make))
-    //       .sort(function(a, b){return a[1]-b[1]})
-    //       .reverse()
-    //       .slice(0,5)
-    //     ).map(x => x[0]);
-
-    // let groupedByMakeAndYear = d3.group(filteredAccidentData, d => d.make, d => d.vehicle_year);
     let min_Vehicle_Year = d3.min(filteredAccidentData, d => d.vehicle_year);
     let max_Vehicle_Year = d3.max(filteredAccidentData, d => d.vehicle_year);
 
     default_data[4] = [valueByMakeYear, worst_makes, filteredAccidentData, min_Vehicle_Year, max_Vehicle_Year];
-    // let numberOfAccidentsPerYear = d3.rollup(filteredAccidentData, v=> v.length, d=>d.vehicle_year, d=>d.make);
-
-    //
 
     let yearCasualtiesByMake = new Map()
 
@@ -1559,8 +1541,6 @@ function gen_unit_chart() {
     if (totalNum < nCars) nCars = Math.round(totalNum);
     let carMargin = (xScale.bandwidth() - def_i7.carSize)/8;
 
-    // FIXME: Check if any value is bigger than 0.85 since it goes behind the chart
-
     let getTranslateCar = (d, position) => {
         let i = d[0], partialNumber = d[1];
         let x = xScale.bandwidth()/2;
@@ -1856,7 +1836,6 @@ function gen_year_slider() {
 */
 
 // Click on county
-// FIXME: If clicked on i.e. isles of scilly, pyramid chart bugs out
 function prepareCountyEvent() {
     svg_choropleth_map.selectAll("path").on("click", (event, datum) => {
         dispatch.call("countyEvent", this, {event: event, datum: datum});
@@ -2693,7 +2672,6 @@ function updateIdioms() {
         let worst_makes, valueByMakeYear;
         let min_Vehicle_Year, max_Vehicle_Year;
 
-        console.time("line-data")
         if (!hasReset) {
             filteredAccidentData = other_data.filter(d => {
                 return d.vehicle_year !== "" && d.vehicle_year !== -1
@@ -2702,7 +2680,6 @@ function updateIdioms() {
             });
 
             if (filteredAccidentData.length === 0){
-                //FIXME: No data to show
                 return;
             }
 
@@ -2732,10 +2709,6 @@ function updateIdioms() {
             min_Vehicle_Year = default_data[4][3];
             max_Vehicle_Year = default_data[4][4];
         }
-
-
-
-        console.timeEnd("line-data")
 
         let yearCasualtiesByMake = new Map()
 
@@ -2768,7 +2741,6 @@ function updateIdioms() {
         max_Vehicle_Year = max_year;
 
         if(min_Vehicle_Year === max_Vehicle_Year){
-            //FIXME: No data to show
             return;
         }
 
@@ -3379,15 +3351,11 @@ function updateIdioms() {
     }
 
     new Promise(function(resolve, reject) {
-        console.time("getData")
         getFilteredData();
-        console.timeEnd("getData")
         resolve();
     }).then(function(val) {
         new Promise(function(resolve, reject) {
-            console.time("choropleth")
             if (isDirty["1"])  update_choropleth_map();
-            console.timeEnd("choropleth")
             resolve();
         }).then( r => {
             count++;
@@ -3395,9 +3363,7 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
-            console.time("pyramid")
             if (isDirty["2"])  update_pyramid_chart();
-            console.timeEnd("pyramid")
             resolve();
         }).then( r => {
             count++;
@@ -3405,9 +3371,7 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
-            console.time("alluvial")
             if (isDirty["3"])  update_alluvial_chart();
-            console.timeEnd("alluvial")
             resolve();
         }).then( r => {
             count++;
@@ -3415,9 +3379,7 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
-            console.time("line")
             if (isDirty["4"])  update_line_chart();
-            console.timeEnd("line")
             resolve();
         }).then( r => {
             count++;
@@ -3425,9 +3387,7 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
-            console.time("radar")
             if (isDirty["5"])  update_radar_chart();
-            console.timeEnd("radar")
             resolve();
         }).then( r => {
             count++;
@@ -3435,9 +3395,7 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
-            console.time("calendar")
             if (isDirty["6"])  update_calendar_heatmap();
-            console.timeEnd("calendar")
             resolve();
         }).then( r => {
             count++;
@@ -3445,9 +3403,7 @@ function updateIdioms() {
         });
 
         new Promise(function(resolve, reject) {
-            console.time("unit")
             if (isDirty["7"])  update_unit_chart();
-            console.timeEnd("unit")
             resolve();
         }).then( r => {
             count++;
